@@ -144,5 +144,10 @@ void symbols_init(void){
     */
 
     // Send buffer pointers to .so
-    ext_setBufferPointers(bool_input, bool_output);
+    ext_setBufferPointers(bool_input, bool_output,
+                          byte_input, byte_output,
+                          int_input, int_output,
+                          dint_input, dint_output,
+                          lint_input, lint_output,
+                          int_memory, dint_memory, lint_memory);
 }

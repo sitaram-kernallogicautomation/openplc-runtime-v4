@@ -73,8 +73,7 @@ void setBufferPointers(IEC_BOOL *input_bool[BUFFER_SIZE][8], IEC_BOOL *output_bo
 						IEC_UINT *input_int[BUFFER_SIZE][8], IEC_UINT *output_int[BUFFER_SIZE][8],
 						IEC_UDINT *input_dint[BUFFER_SIZE][8], IEC_UDINT *output_dint[BUFFER_SIZE][8],
 						IEC_ULINT *input_lint[BUFFER_SIZE][8], IEC_ULINT *output_lint[BUFFER_SIZE][8],
-						IEC_UINT *memory_int[BUFFER_SIZE][8], IEC_UDINT *memory_dint[BUFFER_SIZE][8],
-						IEC_ULINT *memory_lint[BUFFER_SIZE][8])
+						IEC_UINT *int_memory[BUFFER_SIZE][8], IEC_UDINT *dint_memory[BUFFER_SIZE][8], IEC_ULINT *lint_memory[BUFFER_SIZE][8])
 {
 	bool_input_ptr = input_bool;
 	bool_output_ptr = output_bool;
@@ -86,9 +85,9 @@ void setBufferPointers(IEC_BOOL *input_bool[BUFFER_SIZE][8], IEC_BOOL *output_bo
 	dint_output_ptr = output_dint;
 	lint_input_ptr = input_lint;
 	lint_output_ptr = output_lint;
-	int_memory_ptr = memory_int;
-	dint_memory_ptr = memory_dint;
-	lint_memory_ptr = memory_lint;
+	int_memory_ptr = int_memory;
+	dint_memory_ptr = dint_memory;
+	lint_memory_ptr = lint_memory;
 }
 
 void glueVars()
