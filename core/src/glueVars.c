@@ -37,25 +37,25 @@ static IEC_BOOL *(*bool_input_ptr)[8] = NULL;
 static IEC_BOOL *(*bool_output_ptr)[8] = NULL;
 
 //Bytes
-static IEC_BYTE *byte_input[BUFFER_SIZE]; // TODO corrigir declaracao de todas
-static IEC_BYTE *byte_output[BUFFER_SIZE];
+static IEC_BYTE *(*byte_input_ptr)[8] = NULL;
+static IEC_BYTE *(*byte_output_ptr)[8] = NULL;
 
 //Analog I/O
-static IEC_UINT *int_input[BUFFER_SIZE];
-static IEC_UINT *int_output[BUFFER_SIZE];
+static IEC_UINT *(*int_input_ptr)[8] = NULL;
+static IEC_UINT *(*int_output_ptr)[8] = NULL;
 
 //32bit I/O
-static IEC_UDINT *dint_input[BUFFER_SIZE];
-static IEC_UDINT *dint_output[BUFFER_SIZE];
+static IEC_UDINT *(*dint_input_ptr)[8] = NULL;
+static IEC_UDINT *(*dint_output_ptr)[8] = NULL;
 
 //64bit I/O
-static IEC_ULINT *lint_input[BUFFER_SIZE];
-static IEC_ULINT *lint_output[BUFFER_SIZE];
+static IEC_ULINT *(*lint_input_ptr)[8] = NULL;
+static IEC_ULINT *(*lint_output_ptr)[8] = NULL;
 
 //Memory
-static IEC_UINT *int_memory[BUFFER_SIZE];
-static IEC_UDINT *dint_memory[BUFFER_SIZE];
-static IEC_ULINT *lint_memory[BUFFER_SIZE];
+static IEC_UINT *(*int_memory_ptr)[8] = NULL;
+static IEC_UDINT *(*dint_memory_ptr)[8] = NULL;
+static IEC_ULINT *(*lint_memory_ptr)[8] = NULL;
 
 //Special Functions
 static IEC_ULINT *special_functions[BUFFER_SIZE];
@@ -68,10 +68,27 @@ static IEC_ULINT *special_functions[BUFFER_SIZE];
 #include "LOCATED_VARIABLES.h"
 #undef __LOCATED_VAR
 
-void setBufferPointers(IEC_BOOL *input_bool[BUFFER_SIZE][8], IEC_BOOL *output_bool[BUFFER_SIZE][8])
+void setBufferPointers(IEC_BOOL *input_bool[BUFFER_SIZE][8], IEC_BOOL *output_bool[BUFFER_SIZE][8],
+						IEC_BYTE *input_byte[BUFFER_SIZE], IEC_BYTE *output_byte[BUFFER_SIZE],
+						IEC_UINT *input_int[BUFFER_SIZE], IEC_UINT *output_int[BUFFER_SIZE],
+						IEC_UDINT *input_dint[BUFFER_SIZE], IEC_UDINT *output_dint[BUFFER_SIZE],
+						IEC_ULINT *input_lint[BUFFER_SIZE], IEC_ULINT *output_lint[BUFFER_SIZE],
+						IEC_UINT *memory_int[BUFFER_SIZE], IEC_UDINT *memory_dint[BUFFER_SIZE],
+						IEC_ULINT *memory_lint[BUFFER_SIZE])
 {
 	bool_input_ptr = input_bool;
 	bool_output_ptr = output_bool;
+	byte_input_ptr = input_byte;
+	byte_output_ptr = output_byte;
+	int_input_ptr = input_int;
+	int_output_ptr = output_int;
+	dint_input_ptr = input_dint;
+	dint_output_ptr = output_dint;
+	lint_input_ptr = input_lint;
+	lint_output_ptr = output_lint;
+	int_memory_ptr = memory_int;
+	dint_memory_ptr = memory_dint;
+	lint_memory_ptr = memory_lint;
 }
 
 void glueVars()
