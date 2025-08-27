@@ -9,11 +9,11 @@ FLAGS="-pedantic -Wextra -fstack-protector-strong -D_FORTIFY_SOURCE=2 -O3 -Wform
 gcc $FLAGS -I "$libPATH" -c "$srcPATH/Config0.c" -o Config0.o
 gcc $FLAGS -I "$libPATH" -c "$srcPATH/Res0.c"    -o Res0.o
 gcc $FLAGS -I "$libPATH" -c "$srcPATH/debug.c"   -o debug.o
-gcc $FLAGS -I "$libPATH" -c glueVars.c           -o glueVars.o
+gcc $FLAGS -I "$libPATH" -c "$srcPATH/glueVars.c" -o glueVars.o
 
 # Link shared library
 gcc $FLAGS -shared -o libplc.so Config0.o Res0.o debug.o glueVars.o
 
 # Move result
-mv libplc.so ..
+mv libplc.so build/
 rm *.o
