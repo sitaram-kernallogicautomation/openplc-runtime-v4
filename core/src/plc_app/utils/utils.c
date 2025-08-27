@@ -1,5 +1,7 @@
 #include <unistd.h>
 #include <stdlib.h>
+#include <errno.h>
+#include <string.h>
 #include "utils.h"
 
 unsigned long long *ext_common_ticktime__ = NULL;
@@ -33,5 +35,19 @@ void timespec_diff(struct timespec *a, struct timespec *b, struct timespec *resu
         // Borrow 1 second (1e9 nanoseconds)
         --result->tv_sec;
         result->tv_nsec += 1000000000L;
+    }
+}
+
+// configure SCHED_FIFO priority
+void set_realtime_priority(void) {
+    struct sched_param param;
+    param.sched_priority = 20;  // Priority between 1 and 99
+
+    if (sched_setscheduler(0, SCHED_FIFO, &param) != 0) {
+        fprintf(stderr,
+            "sched_setscheduler failed: %s\n",
+            strerror(errno));
+    } else {
+        printf("Scheduler set to SCHED_FIFO, priority %d\n", param.sched_priority);
     }
 }

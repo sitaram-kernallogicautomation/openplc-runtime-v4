@@ -4,22 +4,24 @@ project(plc_application C)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Include directories
-include_directories(${CMAKE_SOURCE_DIR}/core/src/utils
+include_directories(${CMAKE_SOURCE_DIR}/core/src/plc_app
+                    ${CMAKE_SOURCE_DIR}/core/src/plc_app/utils
                     ${CMAKE_SOURCE_DIR}/core/generated/plc_lib
                     ${CMAKE_SOURCE_DIR}/core/generated/plc_lib/lib)
 
 # Compiler options
-add_compile_options(-Wall -Werror -pedantic -Wextra -fstack-protector-strong
+add_compile_options(-Wall -Werror  -Wextra -fstack-protector-strong
     -D_FORTIFY_SOURCE=2 -O2 -Wformat
     -Werror=format-security -fPIC -fPIE)
 
 # Step 3: Build the executable and link against the shared library
 add_executable(plc_main
     ${CMAKE_SOURCE_DIR}/core/src/plc_app/plc_main.c
-    ${CMAKE_SOURCE_DIR}/core/src/plc_app/log.c
+    ${CMAKE_SOURCE_DIR}/core/src/plc_app/utils/log.c
     ${CMAKE_SOURCE_DIR}/core/src/plc_app/utils/utils.c
     ${CMAKE_SOURCE_DIR}/core/src/plc_app/image_tables.c
     ${CMAKE_SOURCE_DIR}/core/src/plc_app/watchdog.c
+    ${CMAKE_SOURCE_DIR}/core/src/plc_app/plugin_manager.c
 )
 
 # Link against shared library

@@ -2,6 +2,7 @@
 #define IMAGE_TABLES_H
 
 #include "./lib/iec_types.h"
+#include "plugin_manager.h"
 
 #define BUFFER_SIZE        1024
 #define libplc_file "./libplc.so"
@@ -44,6 +45,6 @@ extern void (*ext_config_init__)(void);
 extern void (*ext_glueVars)(void);
 extern void (*ext_updateTime)(void);
 
-int symbols_init(void);
+int symbols_init(PluginManager *pm);
 
 #endif // IMAGE_TABLES_H

@@ -3,9 +3,10 @@
 
 #include <time.h>
 #include <dlfcn.h>
+#include <sched.h>
 
 #include "iec_types.h"
-#include "../log.h"
+#include "log.h"
 
 #define BUFFER_SIZE		1024
 
@@ -16,6 +17,7 @@ extern unsigned long tick__;
 void normalize_timespec(struct timespec *ts);
 void sleep_until(struct timespec *ts, long period_ns);
 void timespec_diff(struct timespec *a, struct timespec *b, struct timespec *result);
-int symbols_init(void);
+
+void set_realtime_priority(void);
 
 #endif // UTILS_H
