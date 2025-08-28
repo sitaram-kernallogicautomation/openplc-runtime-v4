@@ -89,68 +89,94 @@ int main(int argc, char *argv[]) {
         ext_config_init__();
         ext_glueVars();
 
-        log_info("Starting main loop");
-        while (1) {
-          // Update Watchdog Heartbeat
-          atomic_store(&plc_heartbeat, time(NULL));
+                log_info("Starting main loop");
+                while(1)
+                {
+                    // Update Watchdog Heartbeat
+                    atomic_store(&plc_heartbeat, time(NULL));
+            
+                    // Initialize timer_start once before the main loop (if not already done)
+                    // clock_gettime(CLOCK_MONOTONIC, &timer_start);
 
-          // Get the start time for the running cycle
-          clock_gettime(CLOCK_MONOTONIC, &cycle_start);
+                    // Get the start time for the running cycle
+                    clock_gettime(CLOCK_MONOTONIC, &cycle_start);
+                    ext_config_run__(tick__++);
+                    ext_updateTime();
 
-          ext_config_run__(tick__++);
-          ext_updateTime();
-          // Get the end time for the running cycle
-          clock_gettime(CLOCK_MONOTONIC, &cycle_end);
+                    // Get the end time for the running cycle
+                    clock_gettime(CLOCK_MONOTONIC, &cycle_end);
 
-          if (bool_output[0][0]) {
-            log_debug("bool_output[0][0]: %d", *bool_output[0][0]);
-          } else {
-            log_debug("bool_output[0][0] is NULL");
-            log_debug("int_output[0] is NULL");
-            log_debug("dint_memory[0] is NULL");
-            log_debug("lint_memory[0] is NULL");
-          }
+                    if (bool_output[0][0]) {
+                        log_debug("bool_output[0][0]: %d", *bool_output[0][0]);
+                    } else {
+                        log_debug("bool_output[0][0] is NULL");
+                        log_debug("int_output[0] is NULL");
+                        log_debug("dint_memory[0] is NULL");
+                        log_debug("lint_memory[0] is NULL");
+                    }
 
-          // Compute the time usage in one cycle and do max/min/total
-          // comparison/recording
-          timespec_diff(&cycle_end, &cycle_start, &cycle_time);
-          if (cycle_time.tv_nsec > cycle_max)
-            cycle_max = cycle_time.tv_nsec;
-          if (cycle_time.tv_nsec < cycle_min)
-            cycle_min = cycle_time.tv_nsec;
-          cycle_total = cycle_total + cycle_time.tv_nsec;
+                    // Compute the cycle execution time
+                    timespec_diff(&cycle_end, &cycle_start, &cycle_time);
+                    long cycle_time_ns = cycle_time.tv_sec * 1000000000L + cycle_time.tv_nsec;
 
-          // usleep((int)*ext_common_ticktime__ % 1000);
-          sleep_until(&timer_start, (unsigned long long)*ext_common_ticktime__);
+                    if (cycle_time_ns > cycle_max)
+                        cycle_max = cycle_time_ns;
+                    if (cycle_time_ns < cycle_min || cycle_min == 0)  // Initialize cycle_min properly
+                        cycle_min = cycle_time_ns;
+                    cycle_total = cycle_total + cycle_time_ns;
 
-          // TODO move to utils.c
-          // Get the sleep end point which is also the start time/point of the
-          // next cycle
-          clock_gettime(CLOCK_MONOTONIC, &timer_end);
-          // Compute the time latency of the next cycle(caused by sleep) and do
-          // max/min/total comparison/recording
-          timespec_diff(&timer_end, &timer_start, &sleep_latency);
-          if (sleep_latency.tv_nsec > latency_max)
-            latency_max = sleep_latency.tv_nsec;
-          if (sleep_latency.tv_nsec < latency_min)
-            latency_min = sleep_latency.tv_nsec;
-          latency_total = latency_total + sleep_latency.tv_nsec;
+                    // Calculate when the next cycle should start
+                    struct timespec next_cycle_start = timer_start;
+                    next_cycle_start.tv_nsec += (unsigned long long)*ext_common_ticktime__;
+                    normalize_timespec(&next_cycle_start);
 
-          // Compute/print the max/min/avg cycle time and latency
-          cycle_avg = (long)cycle_total / tick__;
-          latency_avg = (long)latency_total / tick__;
-          log_debug("maximum/minimum/average cycle time | %ld/%ld/%ld | in ms",
-                    cycle_max / 1000, cycle_min / 1000, cycle_avg / 1000);
-          log_debug("maximum/minimum/average latency | %ld/%ld/%ld | in ms",
-                    latency_max / 1000, latency_min / 1000, latency_avg / 1000);
+                    // Sleep until the next cycle should start
+                    sleep_until(&timer_start, (unsigned long long)*ext_common_ticktime__);
+
+                    // Get the actual wake-up time
+                    clock_gettime(CLOCK_MONOTONIC, &timer_end);
+
+                    // Calculate latency (difference between intended wake-up and actual wake-up)
+                    timespec_diff(&timer_end, &next_cycle_start, &sleep_latency);
+                    long latency_ns = sleep_latency.tv_sec * 1000000000L + sleep_latency.tv_nsec;
+
+                    // Handle negative latency (woke up early - shouldn't happen with proper sleep_until)
+                    if (latency_ns < 0) latency_ns = -latency_ns;
+
+                    if (latency_ns > latency_max)
+                        latency_max = latency_ns;
+                    if (latency_ns < latency_min || latency_min == 0)  // Initialize latency_min properly
+                        latency_min = latency_ns;
+                    latency_total = latency_total + latency_ns;
+
+                    // Update timer_start for the next cycle
+                    timer_start = timer_end;
+
+                    // Compute/print the max/min/avg cycle time and latency
+                    cycle_avg = (long)cycle_total / tick__;
+                    latency_avg = (long)latency_total / tick__;
+
+                    // // Convert nanoseconds to milliseconds (divide by 1,000,000)
+                    // log_debug("current/maximum/minimum/average cycle time | %ld/%ld/%ld/%ld | in ms",
+                    //     cycle_time_ns / 1000000, cycle_max / 1000000, cycle_min / 1000000, cycle_avg / 1000000);
+                    // log_debug("current/maximum/minimum/average latency | %ld/%ld/%ld/%ld | in ms",
+                    //     latency_ns / 1000000, latency_max / 1000000, latency_min / 1000000, latency_avg / 1000000);
+
+                    // Alternative: Print in microseconds for better precision
+                    log_debug("current/maximum/minimum/average cycle time | %ld/%ld/%ld/%ld | in μs",
+                        cycle_time_ns / 1000, cycle_max / 1000, cycle_min / 1000, cycle_avg / 1000);
+                    log_debug("current/maximum/minimum/average latency | %ld/%ld/%ld/%ld | in μs",
+                        latency_ns / 1000, latency_max / 1000, latency_min / 1000, latency_avg / 1000);
+                }
+            }
+            else
+            {
+                log_error("Failed to load application!!!!");
+                sleep(1);
+                continue;
+            }
         }
-      } else {
-        log_error("Failed to load application!!!!");
-        sleep(1);
-        continue;
-      }
     }
-  }
 
   plugin_manager_destroy(pm);
   return 0;
