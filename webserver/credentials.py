@@ -1,24 +1,27 @@
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography import x509
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
 import datetime
 import ipaddress
 import os
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
-class CertGen():
+
+class CertGen:
     """Generates a self-signed TLS certificate and private key."""
+
     def __init__(self, hostname, ip_addresses=None):
         self.hostname = hostname
         self.ip_addresses = ip_addresses
 
         self.now = datetime.datetime.utcnow()
-        self.subject = self.issuer = x509.Name([
-            x509.NameAttribute(NameOID.COMMON_NAME, hostname),
-        ])
+        self.subject = self.issuer = x509.Name(
+            [
+                x509.NameAttribute(NameOID.COMMON_NAME, hostname),
+            ]
+        )
 
         self.alt_names = [x509.DNSName(hostname)]
         if ip_addresses:
@@ -26,13 +29,11 @@ class CertGen():
                 self.alt_names.append(x509.IPAddress(ipaddress.ip_address(addr)))
 
         self.san_extension = x509.SubjectAlternativeName(self.alt_names)
-    
+
     def generate_key(self):
         # Generate our key
         self.key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-            backend=default_backend()
+            public_exponent=65537, key_size=2048, backend=default_backend()
         )
 
     def generate_self_signed_cert(self, cert_file="cert.pem", key_file="key.pem"):
@@ -47,8 +48,12 @@ class CertGen():
             .public_key(self.key.public_key())
             .serial_number(x509.random_serial_number())
             .not_valid_before(self.now)
-            .not_valid_after(self.now + datetime.timedelta(days=365))  # Valid for 1 year
-            .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+            .not_valid_after(
+                self.now + datetime.timedelta(days=365)
+            )  # Valid for 1 year
+            .add_extension(
+                x509.BasicConstraints(ca=True, path_length=None), critical=True
+            )
             .add_extension(self.san_extension, critical=False)
             .sign(self.key, hashes.SHA256(), default_backend())
         )
@@ -57,11 +62,13 @@ class CertGen():
         with open(cert_file, "wb+") as f:
             f.write(cert.public_bytes(serialization.Encoding.PEM))
         with open(key_file, "wb+") as f:
-            f.write(self.key.private_bytes(
-                serialization.Encoding.PEM,
-                serialization.PrivateFormat.PKCS8,
-                serialization.NoEncryption()
-            ))
+            f.write(
+                self.key.private_bytes(
+                    serialization.Encoding.PEM,
+                    serialization.PrivateFormat.PKCS8,
+                    serialization.NoEncryption(),
+                )
+            )
         print(f"Certificate saved to {cert_file}")
         print(f"Private key saved to {key_file}")
 
@@ -80,7 +87,9 @@ class CertGen():
             now = datetime.datetime.utcnow()
 
             if now < cert.not_valid_before_utc:
-                print(f"Certificate is not yet valid. Valid from: {cert.not_valid_before}")
+                print(
+                    f"Certificate is not yet valid. Valid from: {cert.not_valid_before}"
+                )
                 return False
             if now > cert.not_valid_after_utc:
                 print(f"Certificate has expired. Expired on: {cert.not_valid_after}")

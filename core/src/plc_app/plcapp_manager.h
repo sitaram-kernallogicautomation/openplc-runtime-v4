@@ -18,7 +18,7 @@ bool plugin_manager_load(PluginManager *pm);
 void *plugin_manager_get_symbol(PluginManager *pm, const char *symbol_name);
 
 // Type-safe function getter
-#define plugin_manager_get_func(pm, type, name) \
-    ((type) plugin_manager_get_symbol((pm), (name)))
+#define plugin_manager_get_func(pm, type, name)                                \
+  ((type)plugin_manager_get_symbol((pm), (name)))
 
 #endif // PLUGIN_MANAGER_H
