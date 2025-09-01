@@ -9,7 +9,13 @@ OpenPLC Runtime v4 designed to run programs built on OpenPLC Editor v4
 - For now, copy the generated files manually into the `/core/generated` directory.
 
 ### 2. Generate Located Variables Header
-- Use **XML2ST** to generate the `located_variables.h` file correctly.  
+- Use **XML2ST** to generate the `glueVars.c` file correctly.
+   ```bash
+   git clone https://github.com/Autonomy-Logic/xml2st.git
+   cd xml2st
+   git switch development
+   xml2st --generate-gluevars /path/to/located_variables.h
+
 - This header is required for successful compilation of `libplc.so`.
 
 ### 3. Compile Application into Shared Object
