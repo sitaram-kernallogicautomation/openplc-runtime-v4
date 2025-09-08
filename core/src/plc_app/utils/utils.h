@@ -5,10 +5,7 @@
 #include <sched.h>
 #include <time.h>
 
-#include "iec_types.h"
 #include "log.h"
-
-#define BUFFER_SIZE 1024
 
 // IEC_BOOL *(*ext_bool_output)[8];
 extern unsigned long long *ext_common_ticktime__;
