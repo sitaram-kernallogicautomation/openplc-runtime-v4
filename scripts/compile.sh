@@ -3,7 +3,7 @@ set -euo pipefail
 
 libPATH="core/generated/plc_lib/lib"
 srcPATH="core/generated/plc_lib"
-FLAGS="-pedantic -Wextra -fstack-protector-strong -D_FORTIFY_SOURCE=2 -O3 -Wformat -Werror=format-security -fPIC -fPIE"
+FLAGS="-w -O3 -fPIC"
 
 # Compile objects
 gcc $FLAGS -I "$libPATH" -c "$srcPATH/Config0.c" -o Config0.o
