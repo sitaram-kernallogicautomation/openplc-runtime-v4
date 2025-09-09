@@ -21,13 +21,10 @@ extern PLCState plc_state;
 extern plc_timing_stats_t plc_timing_stats;
 volatile sig_atomic_t keep_running = 1;
 struct timespec timer_start;
+pthread_t plc_thread;
+PluginManager *plc_program = NULL;
 
 
-/**
- * @brief Handle SIGINT signal
- *
- * @param sig The signal number
- */
 void handle_sigint(int sig) 
 {
     (void)sig;
@@ -79,12 +76,12 @@ void *plc_cycle_thread(void *arg)
     plc_state = PLC_STATE_RUNNING;
     log_info("PLC State: RUNNING");
 
+    // Get the start time for the running program
+    clock_gettime(CLOCK_MONOTONIC, &timer_start);
+
     while (plc_state == PLC_STATE_RUNNING)
     {
         scan_cycle_time_start();
-
-        // Get the start time for the running cycle
-        clock_gettime(CLOCK_MONOTONIC, &timer_start);
 
         // Execute the PLC cycle
         ext_config_run__(tick__++);
@@ -95,8 +92,12 @@ void *plc_cycle_thread(void *arg)
 
         scan_cycle_time_end();
 
+        // Calculate next start time
+        timer_start.tv_nsec += *ext_common_ticktime__;
+        normalize_timespec(&timer_start);
+
         // Sleep until the next cycle should start
-        sleep_until(&timer_start, (unsigned long long)*ext_common_ticktime__);
+        sleep_until(&timer_start);
     }
 
     return NULL;
@@ -110,7 +111,6 @@ int load_plc_program(PluginManager *pm)
         plc_state = PLC_STATE_INIT;
         log_info("PLC State: INIT");
 
-        pthread_t plc_thread;
         if (pthread_create(&plc_thread, NULL, plc_cycle_thread, pm) != 0) 
         {
             log_error("Failed to create PLC cycle thread");
@@ -134,6 +134,13 @@ int main()
 {
     log_set_level(LOG_LEVEL_DEBUG);
 
+    // Handle SIGINT for graceful shutdown
+    struct sigaction sa;
+    sa.sa_handler = handle_sigint;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, NULL);
+
     // Initialize watchdog
     if (watchdog_init() != 0)
     {
@@ -141,9 +148,9 @@ int main()
         return -1;
     }
 
-    // manager to handle creation and destruction of application code
-    PluginManager *pm = plugin_manager_create("./libplc.so");
-    load_plc_program(pm);
+    // Load user application code
+    plc_program = plugin_manager_create("./libplc.so");
+    load_plc_program(plc_program);
 
     // Launch status printing thread
     pthread_t stats_thread;
@@ -159,7 +166,12 @@ int main()
         sleep(1);
     }
 
-    plugin_manager_destroy(pm);
-    log_info("Exiting...");
+    // Join threads and cleanup
+    plc_state = PLC_STATE_STOPPED;
+    log_info("PLC State: STOPPED");
+    log_info("Shutting down...");
+    pthread_join(stats_thread, NULL);
+    pthread_join(plc_thread, NULL);
+    plugin_manager_destroy(plc_program);
     return 0;
 }

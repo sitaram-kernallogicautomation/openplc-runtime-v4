@@ -29,9 +29,8 @@ void normalize_timespec(struct timespec *ts);
  * @brief Sleep until a specific timespec
  *
  * @param ts The timespec to sleep until
- * @param period_ns The period in nanoseconds
  */
-void sleep_until(struct timespec *ts, long period_ns);
+void sleep_until(struct timespec *ts);
 
 /**
  * @brief Calculate the difference between two timespec structures

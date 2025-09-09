@@ -18,10 +18,8 @@ void normalize_timespec(struct timespec *ts)
     }
 }
 
-void sleep_until(struct timespec *ts, long period_ns) 
+void sleep_until(struct timespec *ts) 
 {
-    ts->tv_nsec += period_ns;
-    normalize_timespec(ts);
     clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, ts, NULL);
 }
 
