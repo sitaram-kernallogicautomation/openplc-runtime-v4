@@ -136,6 +136,16 @@ void *unix_socket_thread(void *arg)
     return NULL;
 }
 
+void close_unix_socket(int server_fd)
+{
+    if (server_fd >= 0) 
+    {
+        close(server_fd);
+        unlink(SOCKET_PATH);
+        log_info("UNIX socket server closed");
+    }
+}
+
 int setup_unix_socket()
 {
     int server_fd;
