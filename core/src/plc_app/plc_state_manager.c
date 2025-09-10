@@ -117,6 +117,8 @@ int unload_plc_program(PluginManager *pm)
         plc_program = NULL;
 
         log_info("PLC program unloaded successfully");
+
+        log_info("PLC State: STOPPED");
         return 0;
     } 
     else 
@@ -167,14 +169,12 @@ bool plc_set_state(PLCState new_state)
     if (new_state == PLC_STATE_RUNNING) 
     {
         load_plc_program(plc_program);
-        log_debug("PLC State: RUNNING");
     }
 
     // Handle transition to stopped
     else if (new_state == PLC_STATE_STOPPED)
     {
         unload_plc_program(plc_program);
-        log_debug("PLC State: STOPPED");
     }
     return true;
 }

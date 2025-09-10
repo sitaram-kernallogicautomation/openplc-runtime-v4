@@ -39,17 +39,26 @@ static ssize_t read_line(int fd, char *buffer, size_t max_length)
     return total_read;
 }
 
-void handle_unix_socket_commands(char *command)
+void handle_unix_socket_commands(char *command, char *response, size_t response_size)
 {
     if (strcmp(command, "STATUS") == 0) 
     {
         log_debug("Received STATUS command");
         // TODO: Implement status reporting
+
+        strcpy(response, "STATUS:OK\n");
     } 
     else if (strcmp(command, "STOP") == 0) 
     {
         log_debug("Received STOP command");
-        plc_set_state(PLC_STATE_STOPPED);
+        if (plc_set_state(PLC_STATE_STOPPED) == true) 
+        {
+            strcpy(response, "STOP:OK\n");
+        } 
+        else 
+        {
+            strcpy(response, "STOP:ERROR\n");
+        }
     } 
     else if (strcmp(command, "START") == 0) 
     {
@@ -57,11 +66,18 @@ void handle_unix_socket_commands(char *command)
         PLCState current_state = plc_get_state();
         if (current_state == PLC_STATE_STOPPED || current_state == PLC_STATE_ERROR) 
         {
-            plc_set_state(PLC_STATE_RUNNING);
+            if (plc_set_state(PLC_STATE_RUNNING) == true) 
+            {
+                strcpy(response, "START:OK\n");
+            } 
+            else 
+            {
+                strcpy(response, "START:ERROR\n");
+            }
         } 
         else 
         {
-            log_info("PLC is already running");
+            log_info("START:ERROR_NOT_RUNNING\n");
         }
     }
     else 
@@ -116,7 +132,12 @@ void *unix_socket_thread(void *arg)
                 log_debug("Received command: %s", command_buffer);
 
                 // Handle the command
-                handle_unix_socket_commands(command_buffer);
+                char response[MAX_RESPONSE_SIZE] = {0};
+                handle_unix_socket_commands(command_buffer, response, MAX_RESPONSE_SIZE);
+                if (strlen(response) > 0) 
+                {
+                    write(client_fd, response, strlen(response));
+                }
             }
             else if (bytes_read == 0)
             {
