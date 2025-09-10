@@ -16,6 +16,7 @@
 #include "utils/watchdog.h"
 #include "scan_cycle_manager.h"
 #include "plc_state_manager.h"
+#include "unix_socket.h"
 
 extern PLCState plc_state;
 volatile sig_atomic_t keep_running = 1;
@@ -84,6 +85,13 @@ int main()
     if (plc_state_manager_init() != 0)
     {
         log_error("Failed to initialize PLC state manager");
+        return -1;
+    }
+
+    // Start UNIX socket server
+    if (setup_unix_socket() != 0)
+    {
+        log_error("Failed to set up UNIX socket");
         return -1;
     }
 
