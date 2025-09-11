@@ -217,8 +217,28 @@ async def async_unix_socket(command_queue: queue.Queue):
     except ConnectionRefusedError as e:
         logger.error("Failed to connect to Unix socket: %s", e)
         return
-    pong = await client.ping()
-    print("Server replied:", pong)
+
+    # try:
+    #     pong = await client.ping()
+    #     print("Server replied:", pong)
+    # except TimeoutError as e:
+    #     logger.error("Failed to connect to Unix socket: %s", e)
+    #     return
+
+    try:
+        pong = await client.start_plc()
+        print("Server replied:", pong)
+    except ConnectionRefusedError as e:
+        logger.error("Failed to connect to Unix socket: %s", e)
+        return
+
+    try:
+        pong = await client.stop_plc()
+        print("Server replied:", pong)
+    except TimeoutError as e:
+        logger.error("Failed to connect to Unix socket: %s", e)
+        return
+
 
     # asyncio.create_task(client.process_command_queue())
     # await client.run_client()

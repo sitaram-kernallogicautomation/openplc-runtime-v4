@@ -87,6 +87,16 @@ class AsyncUnixClient:
         await self.send_message("PING", length_prefixed=False)
         return await self.recv_message(length_prefixed=False)
 
+    async def start_plc(self):
+        """Send START command"""
+        await self.send_message("START", length_prefixed=False)
+        return await self.recv_message(length_prefixed=False)
+    
+    async def stop_plc(self):
+        """Send STOP command"""
+        await self.send_message("STOP", length_prefixed=False)
+        return await self.recv_message(length_prefixed=False)
+
     async def close(self):
         """Close connection"""
         if self.writer:
