@@ -32,44 +32,38 @@ class AsyncUnixClient:
         if not os.path.exists(self.socket_path):
             raise FileNotFoundError(f"Socket not found: {self.socket_path}")
 
-        logger.info("Connecting to socket %s", self.socket_path)
-        self.reader, self.writer = await asyncio.open_unix_connection(self.socket_path)
-        logger.info("Connected successfully")
+        try:
+            logger.info("Connecting to socket %s", self.socket_path)
+            self.reader, self.writer = await asyncio.open_unix_connection(self.socket_path)
+            logger.info("Connected to server socket %s", self.socket_path)
 
-    async def send_message(self, message: str, length_prefixed=True):
-        """Send message to the server with chosen protocol"""
+        except asyncio.TimeoutError as e:
+            logger.error("Socket timeout: %s", e)
+            raise
+        except ConnectionRefusedError as e:
+            logger.error("Connection refused: %s", e)
+            raise
+        except FileNotFoundError:
+            logger.error("Socket file not found: %s", self.socket_path)
+            raise
+
+    async def send_message(self, msg: str, length_prefixed=False):
         if not self.writer:
-            raise RuntimeError("Not connected")
+            raise RuntimeError("Writer not connected")
 
-        if not self.validate_message(message):
-            raise ValueError("Invalid message format")
-
-        if length_prefixed:
-            # Send as [length prefix][message]
-            data = message.encode("utf-8")
-            prefix = len(data).to_bytes(4, "big")
-            self.writer.write(prefix + data)
-        else:
-            # Send as raw text
-            self.writer.write(message.encode("utf-8"))
+        data = msg.encode()
+        self.writer.write(data)
 
         await self.writer.drain()
-        logger.info("Sent message: %s", message)
+        logger.info("Sent message: %s", msg)
 
-    async def recv_message(self, length_prefixed=True) -> Optional[str]:
+    async def recv_message(self) -> Optional[str]:
         """Receive message from the server"""
         if not self.reader:
             raise RuntimeError("Not connected")
 
         try:
-            if length_prefixed:
-                # First 4 bytes = length
-                prefix = await self.reader.readexactly(4)
-                msg_len = int.from_bytes(prefix, "big")
-                data = await self.reader.readexactly(msg_len)
-            else:
-                # Read until newline or EOF
-                data = await self.reader.read(1024)
+            data = await self.reader.readline()
 
             if not data:
                 logger.warning("Connection closed by server")
@@ -81,6 +75,32 @@ class AsyncUnixClient:
         except asyncio.IncompleteReadError:
             logger.warning("Server closed connection unexpectedly")
             return None
+
+    async def process_command_queue(self):
+        """Process commands from the queue"""
+        logger.info("Processing commands! %s", self.command_queue.qsize())
+        while not self.command_queue.empty():
+            command = self.command_queue.get()
+            logger.info("Processing command: %s", command)
+            if command["action"] == "ping":
+                response = await self.ping()
+                logger.info("Ping response: %s", response)
+            elif command["action"] == "start-plc":
+                response = await self.start_plc()
+                logger.info("Start PLC response: %s", response)
+            elif command["action"] == "stop-plc":
+                response = await self.stop_plc()
+                logger.info("Stop PLC response: %s", response)
+            # elif command["action"] == "runtime-logs":
+            #     response = await self.runtime_logs()
+            #     logger.info("Runtime logs response: %s", response)
+            # elif command["action"] == "compilation-status":
+            #     response = await self.compilation_status()
+            #     logger.info("Compilation status response: %s", response)
+            # elif command["action"] == "status":
+            #     response = await self.status()
+            #     logger.info("Status response: %s", response)
+            self.command_queue.task_done()
 
     async def ping(self):
         """Send PING and wait for PONG"""

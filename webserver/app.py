@@ -53,6 +53,7 @@ def restapi_callback_get(argument: str, data: dict) -> dict:
     This is the central callback function that handles the logic
     based on the 'argument' from the URL and 'data' from the request.
     """
+    global command_queue
     logger.debug("GET | Received argument: %s, data: %s", argument, data)
 
     if argument == "start-plc":
@@ -211,62 +212,67 @@ def run_https():
 
 
 async def async_unix_socket(command_queue: queue.Queue):
-    client = AsyncUnixClient(command_queue)
+    """Main Unix client loop that runs in the background."""
+    client = AsyncUnixClient(command_queue, "/tmp/plc_runtime.socket")
+
+    # Wait until server socket exists before connecting
+    for _ in range(50):  # ~5 seconds max
+        if os.path.exists(client.socket_path):
+            break
+        logger.info("Waiting for server socket %s...", client.socket_path)
+        await asyncio.sleep(0.1)
+    else:
+        logger.error("Server socket was never created!")
+        return
+
     try:
         await client.connect()
-    except ConnectionRefusedError as e:
+    except (FileNotFoundError, ConnectionRefusedError) as e:
         logger.error("Failed to connect to Unix socket: %s", e)
         return
 
-    # try:
-    #     pong = await client.ping()
-    #     print("Server replied:", pong)
-    # except TimeoutError as e:
-    #     logger.error("Failed to connect to Unix socket: %s", e)
-    #     return
-
-    try:
-        pong = await client.start_plc()
-        print("Server replied:", pong)
-    except ConnectionRefusedError as e:
-        logger.error("Failed to connect to Unix socket: %s", e)
-        return
-
-    try:
-        pong = await client.stop_plc()
-        print("Server replied:", pong)
-    except TimeoutError as e:
-        logger.error("Failed to connect to Unix socket: %s", e)
-        return
-
-
+    logger.info("Unix client connected successfully")
+    
+    # Kick off background processing of the command queue
     # asyncio.create_task(client.process_command_queue())
-    # await client.run_client()
+
+    # Keep the client alive
+    try:
+        while True:
+            await client.process_command_queue()
+            await asyncio.sleep(0.1)
+    except asyncio.CancelledError:
+        await client.close()
+        logger.info("Unix client stopped")
 
 
 def start_asyncio_loop(async_loop):
-    # Set the event loop for this new thread
+    """Run asyncio loop in its own thread"""
     asyncio.set_event_loop(async_loop)
-    # Run the loop indefinitely
     async_loop.run_forever()
 
 
 if __name__ == "__main__":
+    # 1. Start REST API in separate thread
     threading.Thread(target=run_https, daemon=True).start()
 
+    # 2. Create a background asyncio loop for the Unix client
     loop = asyncio.new_event_loop()
-
     async_thread = threading.Thread(
         target=start_asyncio_loop, args=(loop,), daemon=True
     )
     async_thread.start()
-    future = asyncio.run_coroutine_threadsafe(async_unix_socket(command_queue), loop)
 
-    logger.info("Main thread is running.")
+    # 3. Schedule the Unix client coroutine
+    future = asyncio.run_coroutine_threadsafe(
+        async_unix_socket(command_queue), loop
+    )
+
+    logger.info("Main thread is running (REST API + Unix client).")
     try:
-        future.result()
+        future.result()  # Block until client exits
     except KeyboardInterrupt:
-        logger.error("\nStopping servers...")
+        logger.error("Stopping services...")
         loop.call_soon_threadsafe(loop.stop)
         async_thread.join()
     finally:
