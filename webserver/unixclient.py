@@ -3,8 +3,10 @@ import os
 import logging
 import re
 from typing import Optional
+from threading import Lock
 
 logger = logging.getLogger(__name__)
+mutex = Lock()
 
 
 class SyncUnixClient:
@@ -39,34 +41,36 @@ class SyncUnixClient:
         if not self.sock:
             raise RuntimeError("Socket not connected")
 
-        data = msg.encode()
-        try:
-            self.sock.sendall(data)
-            logger.info("Sent message: %s", data)
-        except Exception as e:
-            logger.error("Error sending message: %s", e)
-            raise
+        with mutex:
+            data = msg.encode()
+            try:
+                self.sock.sendall(data)
+                logger.info("Sent message: %s", data)
+            except Exception as e:
+                logger.error("Error sending message: %s", e)
+                raise
 
     def recv_message(self, timeout: float = 0.5) -> Optional[str]:
         """Receive message from the server"""
         if not self.sock:
             raise RuntimeError("Socket not connected")
 
-        self.sock.settimeout(timeout)
-        try:
-            data = self.sock.recv(1024)
-            if not data:
-                logger.warning("Connection closed by server")
+        with mutex:
+            self.sock.settimeout(timeout)
+            try:
+                data = self.sock.recv(1024)
+                if not data:
+                    logger.warning("Connection closed by server")
+                    return None
+                message = data.decode("utf-8").strip()
+                logger.info("Received message: %s", message)
+                return message
+            except socket.timeout:
+                logger.debug("Timeout waiting for message")
                 return None
-            message = data.decode("utf-8").strip()
-            logger.info("Received message: %s", message)
-            return message
-        except socket.timeout:
-            logger.debug("Timeout waiting for message")
-            return None
-        except Exception as e:
-            logger.error("Error receiving message: %s", e)
-            return None
+            except Exception as e:
+                logger.error("Error receiving message: %s", e)
+                return None
 
     def ping(self):
         """Send PING and wait for PONG"""
