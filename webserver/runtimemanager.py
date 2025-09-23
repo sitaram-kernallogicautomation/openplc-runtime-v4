@@ -71,6 +71,23 @@ class RuntimeManager:
         """
         Start the runtime manager and the PLC runtime process
         """
+        # Ensure UNIX socket paths exist
+        plc_socket_dir = os.path.dirname(self.plc_socket)
+        log_socket_dir = os.path.dirname(self.log_socket)
+        if not os.path.exists(plc_socket_dir):
+            try:
+                os.makedirs(plc_socket_dir)
+                logger.info("Created directory for PLC socket: %s", plc_socket_dir)
+            except Exception as e:
+                logger.error("Failed to create directory for PLC socket: %s", e)
+        if not os.path.exists(log_socket_dir):
+            try:
+                os.makedirs(log_socket_dir)
+                logger.info("Created directory for log socket: %s", log_socket_dir)
+            except Exception as e:
+                logger.error("Failed to create directory for log socket: %s", e)
+
+        # Start runtime process if not already running
         running_process = self.find_running_process()
         if running_process:
             logger.info("Found existing PLC runtime process with PID %d", running_process.pid)
