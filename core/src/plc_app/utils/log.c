@@ -150,23 +150,31 @@ static void log_write(LogLevel level, const char *fmt, va_list args)
     struct tm t;
     localtime_r(&now, &t);
 
-    // Format the log message in JSON format
-    char log_msg[LOG_MESSAGE_SIZE];
-    int n = snprintf(log_msg, sizeof(log_msg), "{\"timestamp\":\"%ld\",\"level\":\"%s\",\"message\":\"", (long)now, level_to_str(level));
-    n += vsnprintf(log_msg + n, sizeof(log_msg) - n, fmt, args);
-    snprintf(log_msg + n, sizeof(log_msg) - n, "\"}\n");
-
-    // Format the log message for stdout
     char stdout_msg[LOG_MESSAGE_SIZE];
+    char log_msg[LOG_MESSAGE_SIZE];
+
     if (print_logs)
     {
+        // Create a copy of va_list for stdout formatting
+        va_list args_copy;
+        va_copy(args_copy, args);
+
+        // Format for stdout
         char time_buf[20];
         strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", &t);
 
         int n = snprintf(stdout_msg, sizeof(stdout_msg), "[%s] [%s] ", time_buf, level_to_str(level));
-        n += vsnprintf(stdout_msg + n, sizeof(stdout_msg) - n, fmt, args);
+        n += vsnprintf(stdout_msg + n, sizeof(stdout_msg) - n, fmt, args_copy);
         snprintf(stdout_msg + n, sizeof(stdout_msg) - n, "\n");
+
+        // Cleanup
+        va_end(args_copy);
     }
+
+    // Format the log message in JSON format
+    int n = snprintf(log_msg, sizeof(log_msg), "{\"timestamp\":\"%ld\",\"level\":\"%s\",\"message\":\"", (long)now, level_to_str(level));
+    n += vsnprintf(log_msg + n, sizeof(log_msg) - n, fmt, args);
+    snprintf(log_msg + n, sizeof(log_msg) - n, "\"}\n");
 
     // Send to unix socket if connected
     pthread_mutex_lock(&log_mutex);
