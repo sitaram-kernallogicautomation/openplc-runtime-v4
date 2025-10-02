@@ -51,7 +51,7 @@ bool plugin_manager_load(PluginManager *pm)
     pm->handle = dlopen(pm->so_path, RTLD_NOW);
     if (!pm->handle) 
     {
-        log_error("Failed to load plugin %s: %s\n", pm->so_path, dlerror());
+        log_error("Failed to load plugin %s: %s", pm->so_path, dlerror());
         return false;
     }
     return true;
