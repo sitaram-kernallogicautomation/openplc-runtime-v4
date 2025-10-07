@@ -9,37 +9,39 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "../drivers/plugin_driver.h"
 #include "image_tables.h"
-#include "utils/log.h"
+#include "plc_state_manager.h"
 #include "plcapp_manager.h"
+#include "scan_cycle_manager.h"
+#include "unix_socket.h"
+#include "utils/log.h"
 #include "utils/utils.h"
 #include "utils/watchdog.h"
-#include "scan_cycle_manager.h"
-#include "plc_state_manager.h"
-#include "unix_socket.h"
 
 extern PLCState plc_state;
 volatile sig_atomic_t keep_running = 1;
 extern plc_timing_stats_t plc_timing_stats;
+plugin_driver_t *plugin_driver = NULL;
 extern bool print_logs;
 
-void handle_sigint(int sig) 
+void handle_sigint(int sig)
 {
     (void)sig;
     keep_running = 0;
 }
 
-void *print_stats_thread(void *arg) 
+void *print_stats_thread(void *arg)
 {
     (void)arg;
-    while (keep_running) 
+    while (keep_running)
     {
         /*
-        if (bool_output[0][0]) 
+        if (bool_output[0][0])
         {
             log_debug("bool_output[0][0]: %d", *bool_output[0][0]);
-        } 
-        else 
+        }
+        else
         {
             log_debug("bool_output[0][0] is NULL");
         }
@@ -47,16 +49,13 @@ void *print_stats_thread(void *arg)
 
         log_info("Scan Count: %lu", plc_timing_stats.scan_count);
         log_info("Scan Time - Min: %ld us, Max: %ld us, Avg: %ld us",
-                 plc_timing_stats.scan_time_min,
-                 plc_timing_stats.scan_time_max,
+                 plc_timing_stats.scan_time_min, plc_timing_stats.scan_time_max,
                  plc_timing_stats.scan_time_avg);
         log_info("Cycle Time - Min: %lu us, Max: %lu us, Avg: %ld us",
-                 plc_timing_stats.cycle_time_min,
-                 plc_timing_stats.cycle_time_max,
+                 plc_timing_stats.cycle_time_min, plc_timing_stats.cycle_time_max,
                  plc_timing_stats.cycle_time_avg);
         log_info("Cycle Latency - Min: %ld us, Max: %ld us, Avg: %ld us",
-                 plc_timing_stats.cycle_latency_min,
-                 plc_timing_stats.cycle_latency_max,
+                 plc_timing_stats.cycle_latency_min, plc_timing_stats.cycle_latency_max,
                  plc_timing_stats.cycle_latency_avg);
         log_info("Overruns: %lu", plc_timing_stats.overruns);
 
@@ -80,7 +79,7 @@ int main(int argc, char *argv[])
 
     // Initialize logging system
     log_set_level(LOG_LEVEL_DEBUG);
-    
+
     if (log_init(LOG_SOCKET_PATH) < 0)
     {
         fprintf(stderr, "Failed to initialize logging system\n");
@@ -101,6 +100,25 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    // Initialize plugin driver system
+    plugin_driver = plugin_driver_create();
+    if (plugin_driver)
+    {
+        log_info("[PLUGIN]: Plugin driver system created");
+        // Load plugin configuration
+        if (plugin_driver_load_config(plugin_driver, "./plugins.conf") == 0)
+        {
+            // Start plugins
+            plugin_driver_init(plugin_driver);
+            plugin_driver_start(plugin_driver);
+            log_info("[PLUGIN]: Plugin driver system initialized");
+        }
+        else
+        {
+            log_error("[PLUGIN]: Failed to load plugin configuration");
+        }
+    }
+
     // Start PLC state manager
     if (plc_state_manager_init() != 0)
     {
@@ -117,22 +135,28 @@ int main(int argc, char *argv[])
 
     // Launch status printing thread
     pthread_t stats_thread;
-    if (pthread_create(&stats_thread, NULL, print_stats_thread, NULL) != 0) 
+    if (pthread_create(&stats_thread, NULL, print_stats_thread, NULL) != 0)
     {
         log_error("Failed to create stats thread");
         return -1;
     }
 
     // Start PLC
-    if (plc_set_state(PLC_STATE_RUNNING) != true) 
+    if (plc_set_state(PLC_STATE_RUNNING) != true)
     {
         log_error("Failed to set PLC state to RUNNING");
     }
 
-    while (keep_running) 
+    while (keep_running)
     {
         // Sleep forever in the main thread
         sleep(1);
+    }
+
+    // Cleanup plugin driver system
+    if (plugin_driver)
+    {
+        plugin_driver_destroy(plugin_driver);
     }
 
     // Cleanup
