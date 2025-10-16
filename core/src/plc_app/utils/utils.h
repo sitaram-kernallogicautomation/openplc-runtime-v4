@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include <sched.h>
 #include <time.h>
+#include <stdint.h>
 
 #include "log.h"
 
