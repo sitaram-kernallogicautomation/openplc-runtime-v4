@@ -93,6 +93,28 @@ void handle_unix_socket_commands(const char *command, char *response, size_t res
             log_error("Received START command but PLC is already RUNNING");
         }
     }
+    else if (strcmp(command, "DEBUG:") == 0)
+    {
+        log_debug("Received DEBUG command");
+        uint8_t debug_data[4096] = {0};
+        size_t data_length = parse_hex_string(&command[6], debug_data);
+        if (data_length > 0)
+        {
+            data_length = process_debug_data(debug_data, data_length);
+            if (data_length > 0)
+            {
+                bytes_to_hex_string(debug_data, data_length, response, response_size, "DEBUG:");
+            }
+            else
+            {
+                strncpy(response, "DEBUG:ERROR_PROCESSING\n", response_size);
+            }
+        }
+        else
+        {
+            strncpy(response, "DEBUG:ERROR_PARSING\n", response_size);
+        }
+    }   
     else
     {
         log_error("Unknown command received: %s", command);
