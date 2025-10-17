@@ -173,6 +173,74 @@ socket.on('disconnect', () => {
 });
 ```
 
+## Client Implementation Example (Python)
+
+### Installation
+```bash
+pip3 install python-socketio[client]
+```
+
+### Test Script
+```python
+#!/usr/bin/env python3
+import socketio
+
+# Get JWT token from /api/login first
+TOKEN = "your_jwt_token_here"
+
+sio = socketio.Client(ssl_verify=False)
+
+@sio.event(namespace='/api/debug')
+def connect():
+    print("✓ Connected to WebSocket!")
+
+@sio.event(namespace='/api/debug')
+def connected(data):
+    print(f"✓ Server confirmed: {data}")
+
+@sio.event(namespace='/api/debug')
+def debug_response(data):
+    print(f"\n✓ Debug response:")
+    print(f"  Success: {data.get('success')}")
+    if data.get('success'):
+        print(f"  Data: {data.get('data')}")
+    else:
+        print(f"  Error: {data.get('error')}")
+
+@sio.event(namespace='/api/debug')
+def disconnect():
+    print("✗ Disconnected")
+
+# Connect with token in auth dict (preferred method)
+try:
+    sio.connect(
+        'https://localhost:8443',
+        auth={'token': TOKEN},
+        namespaces=['/api/debug'],
+        transports=['websocket']
+    )
+
+    # Send debug command
+    sio.emit('debug_command', {
+        'command': '41 DE AD 00 00'  # DEBUG_INFO command
+    }, namespace='/api/debug')
+
+    sio.sleep(2)  # Wait for response
+    sio.disconnect()
+
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+**Note:** You can also pass the token via query string as a fallback:
+```python
+sio.connect(
+    f'https://localhost:8443?token={TOKEN}',
+    namespaces=['/api/debug'],
+    transports=['websocket']
+)
+```
+
 ## Benefits
 
 1. **Single TLS Handshake**: WebSocket connection is established once per debug session
