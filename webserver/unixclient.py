@@ -1,9 +1,9 @@
-import socket
 import os
-import re
-from typing import Optional
+import socket
 from threading import Lock
-from logger import get_logger, LogParser
+from typing import Optional
+
+from logger import get_logger
 
 logger, _ = get_logger(use_buffer=True)
 mutex = Lock()
@@ -13,7 +13,7 @@ class SyncUnixClient:
     def __init__(self, socket_path="/run/runtime/plc_runtime.socket"):
         self.socket_path = socket_path
         self.sock: Optional[socket.socket] = None
-    
+
     def is_connected(self):
         with mutex:
             if self.sock is None:
@@ -54,17 +54,34 @@ class SyncUnixClient:
         with mutex:
             self.sock.settimeout(timeout)
             try:
-                data = self.sock.recv(1024)
-                if not data:
-                    # logger.warning("Connection closed by server")
+                buffer = bytearray()
+                max_size = 8192 * 2 + 256
+
+                while len(buffer) < max_size:
+                    chunk = self.sock.recv(4096)
+                    if not chunk:
+                        if buffer:
+                            break
+                        return None
+
+                    buffer.extend(chunk)
+
+                    if b"\n" in chunk:
+                        break
+
+                if not buffer:
                     return None
-                message = data.decode("utf-8").strip()
-                logger.debug("Received message: %s", message)
+
+                message = buffer.decode("utf-8").strip()
+                logger.debug(
+                    "Received message: %s",
+                    message[:200] + "..." if len(message) > 200 else message,
+                )
                 return message
             except socket.timeout:
                 logger.warning("Timeout waiting for message")
                 return None
-            except Exception as e:
+            except Exception:
                 # logger.error("Error receiving message: %s", e)
                 return None
 
