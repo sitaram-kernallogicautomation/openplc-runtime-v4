@@ -38,20 +38,8 @@ def init_debug_websocket(app, unix_client_instance):
         engineio_logger=False,
         ping_timeout=60,
         ping_interval=25,
+        allow_upgrades=False,
     )
-
-    @_socketio.on("connect")
-    def handle_root_connect():
-        """
-        Handle root namespace connections.
-        These typically occur during client disconnect polling fallback.
-        We silently accept but don't provide any functionality.
-        """
-        return True
-
-    @_socketio.on("disconnect")
-    def handle_root_disconnect():
-        """Handle root namespace disconnect - typically during cleanup"""
 
     @_socketio.on("connect", namespace="/api/debug")
     def handle_connect(auth):
