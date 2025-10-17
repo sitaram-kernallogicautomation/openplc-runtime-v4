@@ -30,6 +30,27 @@ def init_debug_websocket(app, unix_client_instance):
 
     _unix_client = unix_client_instance
 
+    try:
+        from werkzeug import serving  # pylint: disable=import-outside-toplevel
+
+        _original_server_log = serving.BaseWSGIServer.log
+
+        def _filtered_server_log(self, log_type, message, *args):
+            """Filter out specific error messages from server logs"""
+            if (
+                log_type == "error"
+                and "Error on request" in message
+                and "write() before start_response" in message
+            ):
+                logger.debug("Suppressed WSGI disconnect error from server log")
+                return None
+            return _original_server_log(self, log_type, message, *args)
+
+        serving.BaseWSGIServer.log = _filtered_server_log
+        logger.debug("Patched werkzeug server logging to suppress disconnect errors")
+    except Exception as e:
+        logger.warning("Failed to patch error suppression: %s", e)
+
     _socketio = SocketIO(
         app,
         cors_allowed_origins="*",
