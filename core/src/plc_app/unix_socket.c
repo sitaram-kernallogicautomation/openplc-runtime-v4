@@ -132,60 +132,12 @@ void handle_unix_socket_commands(const char *command, char *response, size_t res
     response[response_size - 1] = '\0';
 }
 
-void *client_handler_thread(void *arg)
-{
-    int client_fd = *(int *)arg;
-    free(arg);
-    char command_buffer[COMMAND_BUFFER_SIZE];
-
-    struct timeval timeout;
-    timeout.tv_sec  = 1;
-    timeout.tv_usec = 0;
-    if (setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0)
-    {
-        log_error("Failed to set socket timeout: %s", strerror(errno));
-    }
-
-    while (keep_running)
-    {
-        ssize_t bytes_read = read_line(client_fd, command_buffer, COMMAND_BUFFER_SIZE);
-        if (bytes_read > 0)
-        {
-            log_debug("Received command: %s", command_buffer);
-
-            char response[MAX_RESPONSE_SIZE] = {0};
-            handle_unix_socket_commands(command_buffer, response, MAX_RESPONSE_SIZE);
-            if (strlen(response) > 0)
-            {
-                ssize_t bytes_written = write(client_fd, response, strlen(response));
-                if (bytes_written <= 0)
-                {
-                    log_error("Error writing on unix socket: %s", strerror(errno));
-                }
-            }
-        }
-        else if (bytes_read == 0)
-        {
-            log_info("Unix socket client disconnected");
-            break;
-        }
-        else
-        {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-            {
-                continue;
-            }
-            log_error("Unix socket read failed: %s", strerror(errno));
-            break;
-        }
-    }
-    close(client_fd);
-    return NULL;
-}
-
 void *unix_socket_thread(void *arg)
 {
+    (void)arg;
     int *server_fd_pt = (int *)arg;
+    int client_fd;
+    char command_buffer[COMMAND_BUFFER_SIZE];
 
     if (server_fd_pt == NULL)
     {
@@ -202,39 +154,53 @@ void *unix_socket_thread(void *arg)
 
     while (keep_running)
     {
-        int client_fd = accept(server_fd, NULL, NULL);
+        client_fd = accept(server_fd, NULL, NULL);
         if (client_fd < 0)
         {
             if (errno == EINTR)
             {
-                continue;
+                continue; // Interrupted by signal, retry
             }
             log_error("Unix socket accept failed: %s", strerror(errno));
+
+            // Retry after a short delay
             sleep(1);
             continue;
         }
 
         log_info("Unix socket client connected");
 
-        int *client_fd_ptr = malloc(sizeof(int));
-        if (client_fd_ptr == NULL)
+        while (keep_running)
         {
-            log_error("Failed to allocate memory for client fd");
-            close(client_fd);
-            continue;
-        }
-        *client_fd_ptr = client_fd;
+            ssize_t bytes_read = read_line(client_fd, command_buffer, COMMAND_BUFFER_SIZE);
+            if (bytes_read > 0)
+            {
+                log_debug("Received command: %s", command_buffer);
 
-        pthread_t client_thread;
-        if (pthread_create(&client_thread, NULL, client_handler_thread, client_fd_ptr) != 0)
-        {
-            log_error("Failed to create client handler thread: %s", strerror(errno));
-            free(client_fd_ptr);
-            close(client_fd);
-            continue;
+                // Handle the command
+                char response[MAX_RESPONSE_SIZE] = {0};
+                handle_unix_socket_commands(command_buffer, response, MAX_RESPONSE_SIZE);
+                if (strlen(response) > 0)
+                {
+                    ssize_t bytes_written = write(client_fd, response, strlen(response));
+                    if (bytes_written <= 0)
+                    {
+                        log_error("Error writing on unix socket: %s", strerror(errno));
+                    }
+                }
+            }
+            else if (bytes_read == 0)
+            {
+                log_info("Unix socket client disconnected");
+                break;
+            }
+            else
+            {
+                log_error("Unix socket read failed: %s", strerror(errno));
+                break;
+            }
         }
-
-        pthread_detach(client_thread);
+        close(client_fd);
     }
 
     close_unix_socket(server_fd);
