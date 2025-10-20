@@ -2,6 +2,61 @@ import sys
 import os
 import json
 import traceback
+import re
+from dataclasses import dataclass
+from typing import Optional, Literal
+
+Area = Literal["I", "Q", "M"]
+Size = Literal["X", "B", "W", "D", "L"]
+
+ADDR_RE = re.compile(r"^%([IQM])([XBWDL])(\d+)(?:\.(\d+))?$", re.IGNORECASE)
+
+@dataclass
+class IECAddress:
+    area: Area              # 'I' | 'Q' | 'M'
+    size: Size              # 'X' | 'B' | 'W' | 'D' | 'L'
+    byte: int               # byte base (para X é o byte do bit; p/ B/W/D/L é o início)
+    bit: Optional[int]      # só para X
+    index_bits: Optional[int]   # índice linear em bits (só p/ X)
+    index_bytes: int            # índice linear em bytes (offset no buffer)
+    width_bits: int             # 1, 8, 16, 32, 64
+
+def parse_iec_address(s: str) -> IECAddress:
+    m = ADDR_RE.match(s.strip())
+    if not m:
+        raise ValueError(f"Endereço IEC inválido: {s!r}")
+    area, size, n1, n2 = m.groups()
+    area = area.upper()            # 'I', 'Q' ou 'M'
+    size = size.upper()            # 'X','B','W','D','L'
+    byte = int(n1)
+    bit = int(n2) if n2 is not None else None
+
+    if size == "X":
+        if bit is None or not (0 <= bit <= 7):
+            raise ValueError("Bit ausente ou fora de 0..7 para endereço do tipo X (bit).")
+        index_bits = byte * 8 + bit
+        index_bytes = byte
+        width_bits = 1
+    elif size == "B":
+        index_bits = None
+        index_bytes = byte
+        width_bits = 8
+    elif size == "W":
+        index_bits = None
+        index_bytes = byte * 2
+        width_bits = 16
+    elif size == "D":
+        index_bits = None
+        index_bytes = byte * 4
+        width_bits = 32
+    elif size == "L":
+        index_bits = None
+        index_bytes = byte * 8
+        width_bits = 64
+    else:
+        raise ValueError(f"Tamanho não suportado: {size}")
+
+    return IECAddress(area, size, byte, bit, index_bits, index_bytes, width_bits)
 
 # Add the parent directory to Python path to find shared module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
