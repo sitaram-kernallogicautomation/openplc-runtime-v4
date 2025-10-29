@@ -188,6 +188,12 @@ int plugin_driver_start(plugin_driver_t *driver)
         return -1;
     }
 
+    if (driver->plugin_count == 0)
+    {
+        printf("[PLUGIN]: No plugins to start.\n");
+        return 0;
+    }
+    
     main_tstate = PyEval_SaveThread();
     gstate      = PyGILState_Ensure();
 
