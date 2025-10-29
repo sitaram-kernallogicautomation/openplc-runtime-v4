@@ -304,7 +304,7 @@ void plugin_driver_destroy(plugin_driver_t *driver)
     if (driver->plugin_count == 0)
     {
         printf("[PLUGIN]: No plugins to destroy.\n");
-        return 0;
+        return;
     }
 
     gstate = PyGILState_Ensure();

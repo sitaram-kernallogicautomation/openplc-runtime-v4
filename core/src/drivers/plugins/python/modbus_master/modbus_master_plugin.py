@@ -118,7 +118,7 @@ class ModbusSlaveDevice(threading.Thread):
                 if area == "I":
                     buffer_type_str = "bool_input"
                 elif area == "Q":
-                    buffer_type_str = "bool_output" if is_write_op else "bool_input"
+                    buffer_type_str = "bool_output" if is_write_op else "bool_output"
                 elif area == "M":
                     print(f"[{self.name}] ⚠ Memory area 'M' not supported for boolean operations")
                     return None
@@ -152,13 +152,13 @@ class ModbusSlaveDevice(threading.Thread):
                         return None
                 elif area == "Q":  # Output area
                     if size == "B":
-                        buffer_type_str = "byte_output" if is_write_op else "byte_input"
+                        buffer_type_str = "byte_output"
                     elif size == "W":
-                        buffer_type_str = "int_output" if is_write_op else "int_input"
+                        buffer_type_str = "int_output"
                     elif size == "D":
-                        buffer_type_str = "dint_output" if is_write_op else "dint_input"
+                        buffer_type_str = "dint_output"
                     elif size == "L":
-                        buffer_type_str = "lint_output" if is_write_op else "lint_input"
+                        buffer_type_str = "lint_output"
                     else:
                         print(f"[{self.name}] ⚠ Unsupported output size: {size}")
                         return None
@@ -216,7 +216,7 @@ class ModbusSlaveDevice(threading.Thread):
                     
                     # Write boolean value
                     if buffer_type == "bool_input":
-                        success, msg = self.sba.write_bool_output(current_buffer_idx, actual_bit_idx, 
+                        success, msg = self.sba.write_bool_input(current_buffer_idx, actual_bit_idx, 
                                                                 current_data, thread_safe=False)
                     elif buffer_type == "bool_output":
                         success, msg = self.sba.write_bool_output(current_buffer_idx, actual_bit_idx, 
@@ -234,23 +234,23 @@ class ModbusSlaveDevice(threading.Thread):
                     
                     # Write the value using the appropriate method
                     if buffer_type == "byte_input":
-                        success, msg = self.sba.write_byte_output(current_buffer_idx, current_data, thread_safe=False)
+                        success, msg = self.sba.write_byte_input(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "byte_output":
                         success, msg = self.sba.write_byte_output(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "int_input":
-                        success, msg = self.sba.write_int_output(current_buffer_idx, current_data, thread_safe=False)
+                        success, msg = self.sba.write_int_input(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "int_output":
                         success, msg = self.sba.write_int_output(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "int_memory":
                         success, msg = self.sba.write_int_memory(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "dint_input":
-                        success, msg = self.sba.write_dint_output(current_buffer_idx, current_data, thread_safe=False)
+                        success, msg = self.sba.write_dint_input(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "dint_output":
                         success, msg = self.sba.write_dint_output(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "dint_memory":
                         success, msg = self.sba.write_dint_memory(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "lint_input":
-                        success, msg = self.sba.write_lint_output(current_buffer_idx, current_data, thread_safe=False)
+                        success, msg = self.sba.write_lint_input(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "lint_output":
                         success, msg = self.sba.write_lint_output(current_buffer_idx, current_data, thread_safe=False)
                     elif buffer_type == "lint_memory":
