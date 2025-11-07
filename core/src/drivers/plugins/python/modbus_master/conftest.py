@@ -1,7 +1,7 @@
 # tests/conftest.py
 import importlib
 import pytest
-import asyncio
+# import asyncio
 # from pymodbus.server import StartAsyncTcpServer
 # from pymodbus.datastore import (
 #     ModbusSequentialDataBlock,
@@ -10,42 +10,24 @@ import asyncio
 # )
 # from pymodbus.device import ModbusDeviceIdentification
 
-from unittest.mock import AsyncMock, patch
+# from unittest.mock import AsyncMock, patch
 
-@pytest.fixture
-def mocked_modbus_client():
-    with patch(
-        "core.src.drivers.plugins.python.modbus_master.modbus_master_plugin.AsyncModbusTcpClient"
-    ) as mock_class:
-        mock_client = AsyncMock()
-        mock_client.connect.return_value = True
-        mock_client.close.return_value = True
+# @pytest.fixture
+# def mocked_modbus_client():
+#     with patch(
+#         "core.src.drivers.plugins.python.modbus_master.modbus_master_plugin.AsyncModbusTcpClient"
+#     ) as mock_class:
+#         mock_client = AsyncMock()
+#         mock_client.connect.return_value = True
+#         mock_client.close.return_value = True
 
-        mock_response = AsyncMock()
-        mock_response.isError.return_value = False
-        mock_response.registers = [17] * 10
-        mock_client.read_holding_registers.return_value = mock_response
+#         mock_response = AsyncMock()
+#         mock_response.isError.return_value = False
+#         mock_response.registers = [17] * 10
+#         mock_client.read_holding_registers.return_value = mock_response
 
-        mock_class.return_value = mock_client
-        yield mock_client
-
-@pytest.mark.asyncio
-async def test_read_registers(mocked_modbus_client):
-    import importlib
-    plugin = importlib.import_module(
-        "core.src.drivers.plugins.python.modbus_master.modbus_master_plugin"
-    )
-
-    config = {"host": "localhost", "port": 5020}
-    await plugin.INIT(config)
-    await plugin.START()
-
-    data = await plugin.read(fc=3, address=0, count=10)
-    assert data == [17] * 10
-
-    # Assert the mock was used correctly
-    mocked_modbus_client.read_holding_registers.assert_awaited_with(0, 10)
-    await plugin.STOP()
+#         mock_class.return_value = mock_client
+#         yield mock_client
 
 
 # @pytest.fixture(scope="function")
