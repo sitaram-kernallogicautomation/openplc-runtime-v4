@@ -24,18 +24,40 @@ def test_modbus_io_point_config_from_dict():
     print("\n--- Testing ModbusIoPointConfig.from_dict ---")
     io_point_data = {
         "fc": 3,
-        "offset": "0x000A",
+        "offset": "0xB00A",
         "iec_location": "%MW10",
         "len": 5
     }
     io_point = ModbusIoPointConfig.from_dict(data=io_point_data)
     print(io_point)
     assert io_point.fc == 3
-    assert io_point.offset == "0x000A"
+    assert io_point.offset == "0xB00A"
     assert ("%" + str(io_point.iec_location.area) +
             str(io_point.iec_location.size) + 
             str(io_point.iec_location.byte)) == "%MW10"
     assert io_point.length == 5
+
+def test_modbus_master_config_import():
+    print("\n--- Testing ModbusMasterConfig.import_config_from_file ---")
+    config_file_path = os.path.join(os.path.dirname(__file__), 'test_modbus_master_config.json')
+    modbus_config = ModbusMasterConfig()
+    modbus_config.import_config_from_file(config_file_path)
+    
+    print(f"Imported {len(modbus_config.devices)} devices.")
+    for device in modbus_config.devices:
+        print(device)
+    
+    try:
+        modbus_config.validate()
+    except ValueError as e:
+        pytest.fail(f"Validation failed: {e}")
+    
+    assert len(modbus_config.devices) == 2
+    device = modbus_config.devices[0]
+    assert device.name == "test_1"
+    assert device.host == "127.0.0.1"
+    assert device.port == 5024
+    assert len(device.io_points) == 3
 
 # def test_get_batch_read_requests_from_io_points():
 #     print("\n--- Testing get_batch_read_requests_from_io_points ---")
