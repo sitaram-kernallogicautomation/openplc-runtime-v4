@@ -45,12 +45,17 @@ def test_update_iec_buffer_from_modbus_data_word(modbus_slave, fake_sba):
     assert fake_sba.write_int_output.call_count == 1
 
 def test_read_data_for_modbus_write_boolean(modbus_slave, fake_sba):
+    modbus_slave.sba = fake_sba  # <-- Inject here
+    fake_sba.read_bool_output.side_effect = lambda *a, **kw: print("READ_BOOL_OUTPUT CALLED") or (123, "Success")
     iec_addr = SimpleNamespace(area="Q", size="X", index_bytes=0, bit=0)
     values = modbus_slave._read_data_for_modbus_write(iec_addr, 3)
     assert all(v == 123 for v in values)
     fake_sba.read_bool_output.assert_called()
 
+
 def test_read_data_for_modbus_write_word(modbus_slave, fake_sba):
+    modbus_slave.sba = fake_sba  # <-- Inject here
+    fake_sba.read_int_output.side_effect = lambda *a, **kw: print("READ_INT_OUTPUT CALLED") or (123, "Success")
     iec_addr = SimpleNamespace(area="Q", size="W", index_bytes=0, bit=None)
     values = modbus_slave._read_data_for_modbus_write(iec_addr, 2)
     assert values == [123, 123]

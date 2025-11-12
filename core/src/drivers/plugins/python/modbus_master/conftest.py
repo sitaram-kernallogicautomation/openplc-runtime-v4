@@ -20,12 +20,12 @@ def fake_device_config():
 def fake_sba():
     """Fake SafeBufferAccess object with read/write mocks."""
     sba = MagicMock()
-    # Return success for all read/write calls
+    # Return only values (no status tuple)
     for prefix in ["bool", "byte", "int", "dint", "lint"]:
         for direction in ["input", "output", "memory"]:
-            getattr(sba, f"write_{prefix}_{direction}", MagicMock(return_value=(True, "Success")))
-            getattr(sba, f"read_{prefix}_{direction}", MagicMock(return_value=(123, "Success")))
-    sba.acquire_mutex.return_value = (True, "Success")
+            getattr(sba, f"write_{prefix}_{direction}", MagicMock(return_value=True))
+            getattr(sba, f"read_{prefix}_{direction}", MagicMock(return_value=123))
+    sba.acquire_mutex.return_value = True
     sba.release_mutex.return_value = None
     return sba
 
