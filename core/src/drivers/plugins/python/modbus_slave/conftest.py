@@ -1,5 +1,6 @@
 import pytest
 import threading
+import simple_modbus  # <-- Make sure this import is here
 
 MAX_BITS = 8   # matches OpenPLC bit grouping
 MAX_REGS = 1   # word-aligned registers
@@ -21,7 +22,11 @@ class AdvancedObservingSBA:
         self.unlock_count = 0
         self.fail_range = False
 
-        # REQUIRED by DataBlock (your tests were failing without these)
+        # FIX 1: Added attributes required by datablock __init__
+        self.is_valid = True
+        self.error_msg = ""
+
+        # REQUIRED by DataBlock
         self.bits_per_buffer = MAX_BITS
         self.buffer_size = length
 
@@ -50,6 +55,13 @@ class AdvancedObservingSBA:
         except RuntimeError:
             pass
 
+    # FIX 2: Added public-facing mutex methods
+    def acquire_mutex(self):
+        self.lock()
+
+    def release_mutex(self):
+        self.unlock()
+
     def _check_range(self, idx):
         if self.fail_range:
             return False
@@ -68,37 +80,37 @@ class AdvancedObservingSBA:
         flat = buffer_idx * MAX_BITS + bit_idx
         if not self._check_range(flat):
             return 0, "range error"
-        return self.bits[flat], ""
+        return self.bits[flat], "Success"  # <-- FIX 3: Return "Success"
 
     def write_bool_output(self, buffer_idx, bit_idx, value, thread_safe=True):
         flat = buffer_idx * MAX_BITS + bit_idx
         if not self._check_range(flat):
             return False, "range error"
         self.bits[flat] = int(bool(value))
-        return True, ""
+        return True, "Success"  # <-- FIX 3: Return "Success"
 
     def read_bool_input(self, buffer_idx, bit_idx, thread_safe=True):
         flat = buffer_idx * MAX_BITS + bit_idx
         if not self._check_range(flat):
             return 0, "range error"
-        return self.bits[flat], ""
+        return self.bits[flat], "Success"  # <-- FIX 3: Return "Success"
 
     # registers
     def read_uint16_input(self, idx, thread_safe=True):
         if not self._check_reg_range(idx):
             return 0, "range"
-        return self.regs[idx], ""
+        return self.regs[idx], "Success"  # <-- FIX 3: Return "Success"
 
     def read_uint16_output(self, idx, thread_safe=True):
         if not self._check_reg_range(idx):
             return 0, "range"
-        return self.regs[idx], ""
+        return self.regs[idx], "Success"  # <-- FIX 3: Return "Success"
 
     def write_uint16_output(self, idx, value, thread_safe=True):
         if not self._check_reg_range(idx):
             return False, "range"
         self.regs[idx] = value & 0xFFFF
-        return True, ""
+        return True, "Success"  # <-- FIX 3: Return "Success"
 
     read_int_input = read_uint16_input
     write_int_output = write_uint16_output
@@ -110,31 +122,30 @@ class AdvancedObservingSBA:
 # ======================================================================
 
 @pytest.fixture
-def advanced_sba(runtime_args):
+def advanced_sba(runtime_args, monkeypatch): # <-- Added monkeypatch
     """
     Fixture used by test_inputs.py.
-    Provides AdvancedObservingSBA directly.
+    Provides AdvancedObservingSBA and patches SafeBufferAccess to use it.
     """
     sba = AdvancedObservingSBA(runtime_args, length=32)
     runtime_args.sba = sba
+    
+    # Patch simple_modbus.SafeBufferAccess to return our mock sba
+    monkeypatch.setattr(simple_modbus, "SafeBufferAccess", lambda args: sba)
+    
     return sba
 
 
 @pytest.fixture
 def runtime_args():
-    """
-    Unified runtime args mock compatible with both the old and new tests.
-    """
-    class RuntimeArgs:
-        pass
-
-    args = RuntimeArgs()
-    args.sba = AdvancedObservingSBA(args, length=64)
-
-    # OpenPLC structures required by some datablocks:
-    args.bool_input = [0] * 64
-    args.bool_output = [0] * 64
-    args.analog_input = [0] * 64
-    args.analog_output = [0] * 64
-
-    return args
+    """Fake runtime args with a mock PLC buffer and proper lock."""
+    class FakeRuntime:
+        def __init__(self):
+            self.analog_inputs = [100, 200, 300, 400]
+            self.analog_outputs = [0, 0, 0, 0]
+            self.bool_inputs = [0] * 64
+            self.bool_outputs = [0] * 64
+            # Add proper threading lock
+            import threading
+            self.lock = threading.RLock()
+    return FakeRuntime()
