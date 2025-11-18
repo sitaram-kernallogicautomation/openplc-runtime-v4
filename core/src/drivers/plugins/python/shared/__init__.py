@@ -13,7 +13,6 @@ __all__ = [
     # concrete protocol config models
     'ModbusIoPointConfig',
     'ModbusMasterConfig',
-    # concrete protocol config models
     # 'EthercatConfig',
     # 'EthercatIoPointConfig',
 ]
