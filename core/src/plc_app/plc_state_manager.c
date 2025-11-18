@@ -144,35 +144,6 @@ int unload_plc_program(PluginManager *pm)
     }
 }
 
-int plc_state_manager_init(void)
-{
-    pthread_mutex_lock(&state_mutex);
-    plc_state = PLC_STATE_STOPPED;
-
-    char *libplc_path = find_libplc_file(libplc_build_dir);
-    if (libplc_path == NULL)
-    {
-        log_error("Failed to find libplc file");
-        pthread_mutex_unlock(&state_mutex);
-
-        // No libplc file means no PLC program to load
-        return 0;
-    }
-
-    plc_program = plugin_manager_create(libplc_path);
-    free(libplc_path);
-
-    if (plc_program == NULL)
-    {
-        log_error("Failed to create PluginManager");
-        pthread_mutex_unlock(&state_mutex);
-        return -1;
-    }
-    pthread_mutex_unlock(&state_mutex);
-
-    return 0;
-}
-
 PLCState plc_get_state(void)
 {
     PLCState state;
@@ -202,6 +173,9 @@ bool plc_set_state(PLCState new_state)
             if (libplc_path == NULL)
             {
                 log_error("Failed to find libplc file");
+                pthread_mutex_lock(&state_mutex);
+                plc_state = PLC_STATE_EMPTY;
+                pthread_mutex_unlock(&state_mutex);
                 return false;
             }
 
@@ -211,11 +185,17 @@ bool plc_set_state(PLCState new_state)
             if (plc_program == NULL)
             {
                 log_error("Failed to create PluginManager");
+                pthread_mutex_lock(&state_mutex);
+                plc_state = PLC_STATE_EMPTY;
+                pthread_mutex_unlock(&state_mutex);
                 return false;
             }
         }
         if (load_plc_program(plc_program) < 0)
         {
+            pthread_mutex_lock(&state_mutex);
+            plc_state = PLC_STATE_ERROR;
+            pthread_mutex_unlock(&state_mutex);
             return false;
         }
     }
