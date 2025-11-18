@@ -41,6 +41,109 @@ def get_batch_write_requests_from_io_points(io_points: List[Any]) -> Dict[int, L
             write_requests[fc].append(point)
     return write_requests
 
+def get_modbus_registers_count_for_iec_size(iec_size: str) -> int:
+    """
+    Returns how many 16-bit Modbus registers are needed for an IEC data type.
+    
+    Args:
+        iec_size: IEC data size ('X', 'B', 'W', 'D', 'L')
+    
+    Returns:
+        Number of 16-bit registers needed
+    """
+    if iec_size == "X":  # 1 bit - handled separately (coils/discrete inputs)
+        return 0  # Not applicable for registers
+    elif iec_size == "B":  # 8 bits - fits in 1 register (with some unused bits)
+        return 1
+    elif iec_size == "W":  # 16 bits - exactly 1 register
+        return 1
+    elif iec_size == "D":  # 32 bits - needs 2 registers
+        return 2
+    elif iec_size == "L":  # 64 bits - needs 4 registers
+        return 4
+    else:
+        return 1  # Default fallback
+
+def convert_modbus_registers_to_iec_value(registers: List[int], iec_size: str, use_big_endian: bool = False):
+    """
+    Converts Modbus register values to IEC data type value.
+    
+    Args:
+        registers: List of 16-bit register values from Modbus
+        iec_size: IEC data size ('B', 'W', 'D', 'L')
+        use_big_endian: If True, use big-endian byte order, else little-endian
+    
+    Returns:
+        Converted value ready for IEC buffer
+    """
+    if iec_size == "B":  # 8 bits
+        # Take lower 8 bits of first register
+        return registers[0] & 0xFF
+    elif iec_size == "W":  # 16 bits
+        # Single register, no conversion needed
+        return registers[0] & 0xFFFF
+    elif iec_size == "D":  # 32 bits
+        # Combine 2 registers into 32-bit value
+        if len(registers) < 2:
+            raise ValueError("Need at least 2 registers for D (32-bit) type")
+        if use_big_endian:
+            return (registers[0] << 16) | registers[1]
+        else:  # little-endian
+            return (registers[1] << 16) | registers[0]
+    elif iec_size == "L":  # 64 bits
+        # Combine 4 registers into 64-bit value
+        if len(registers) < 4:
+            raise ValueError("Need at least 4 registers for L (64-bit) type")
+        if use_big_endian:
+            return (registers[0] << 48) | (registers[1] << 32) | (registers[2] << 16) | registers[3]
+        else:  # little-endian
+            return (registers[3] << 48) | (registers[2] << 32) | (registers[1] << 16) | registers[0]
+    else:
+        raise ValueError(f"Unsupported IEC size for register conversion: {iec_size}")
+
+def convert_iec_value_to_modbus_registers(value: int, iec_size: str, use_big_endian: bool = False) -> List[int]:
+    """
+    Converts IEC data type value to Modbus register values.
+    
+    Args:
+        value: IEC value to convert
+        iec_size: IEC data size ('B', 'W', 'D', 'L')
+        use_big_endian: If True, use big-endian byte order, else little-endian
+    
+    Returns:
+        List of 16-bit register values for Modbus
+    """
+    if iec_size == "B":  # 8 bits
+        # Put 8-bit value in lower part of register, upper part is 0
+        return [value & 0xFF]
+    elif iec_size == "W":  # 16 bits
+        # Single register
+        return [value & 0xFFFF]
+    elif iec_size == "D":  # 32 bits
+        # Split into 2 registers
+        if use_big_endian:
+            return [(value >> 16) & 0xFFFF, value & 0xFFFF]
+        else:  # little-endian
+            return [value & 0xFFFF, (value >> 16) & 0xFFFF]
+    elif iec_size == "L":  # 64 bits
+        # Split into 4 registers
+        if use_big_endian:
+            return [
+                (value >> 48) & 0xFFFF,
+                (value >> 32) & 0xFFFF,
+                (value >> 16) & 0xFFFF,
+                value & 0xFFFF
+            ]
+        else:  # little-endian
+            return [
+                value & 0xFFFF,
+                (value >> 16) & 0xFFFF,
+                (value >> 32) & 0xFFFF,
+                (value >> 48) & 0xFFFF
+            ]
+    else:
+        raise ValueError(f"Unsupported IEC size for register conversion: {iec_size}")
+
 # Add the parent directory to Python path to find shared module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -267,7 +370,7 @@ class ModbusSlaveDevice(threading.Thread):
         Args:
             iec_addr: IECAddress object
             modbus_data: List of values from Modbus (booleans for coils/inputs, integers for registers)
-            length: Number of elements to write
+            length: Number of IEC elements to write
         """
         try:
             details = self._get_sba_access_details(iec_addr, is_write_op=True)
@@ -279,13 +382,17 @@ class ModbusSlaveDevice(threading.Thread):
             base_buffer_idx = details["buffer_idx"]
             base_bit_idx = details["bit_idx"]
             is_boolean = details["is_boolean"]
+            iec_size = iec_addr.size
             
             # Write data elements to consecutive buffer locations
-            for i in range(min(length, len(modbus_data))):
-                current_data = modbus_data[i]
-                
+            for i in range(length):
                 if is_boolean:
                     # For boolean operations, handle bit indexing
+                    if i >= len(modbus_data):
+                        break  # No more data available
+                    
+                    current_data = modbus_data[i]
+                    
                     if base_bit_idx is not None:
                         # Calculate the actual bit position for this element
                         current_bit_idx = base_bit_idx + i
@@ -310,7 +417,32 @@ class ModbusSlaveDevice(threading.Thread):
                         print(f"[{self.name}] ✗ Failed to write boolean at buffer {current_buffer_idx}, bit {actual_bit_idx}: {msg}")
                 
                 else:
-                    # For non-boolean operations
+                    # For non-boolean operations, handle register conversion
+                    registers_per_element = get_modbus_registers_count_for_iec_size(iec_size)
+                    start_reg_idx = i * registers_per_element
+                    end_reg_idx = start_reg_idx + registers_per_element
+                    
+                    if end_reg_idx > len(modbus_data):
+                        break  # Not enough register data available
+                    
+                    # Extract the registers for this IEC element
+                    element_registers = modbus_data[start_reg_idx:end_reg_idx]
+                    
+                    # Convert Modbus registers to IEC value
+                    try:
+                        if iec_size in ["B", "W"]:
+                            # For B and W, direct conversion (no multi-register)
+                            current_data = convert_modbus_registers_to_iec_value(element_registers, iec_size)
+                        elif iec_size in ["D", "L"]:
+                            # For D and L, combine multiple registers
+                            current_data = convert_modbus_registers_to_iec_value(element_registers, iec_size, use_big_endian=False)
+                        else:
+                            print(f"[{self.name}] ⚠ Unsupported IEC size: {iec_size}")
+                            continue
+                    except ValueError as e:
+                        print(f"[{self.name}] ✗ Error converting registers to IEC value: {e}")
+                        continue
+                    
                     current_buffer_idx = base_buffer_idx + i
                     
                     # Write the value using the appropriate method
@@ -353,7 +485,7 @@ class ModbusSlaveDevice(threading.Thread):
         
         Args:
             iec_addr: IECAddress object
-            length: Number of elements to read
+            length: Number of IEC elements to read
         
         Returns:
             List of values ready for Modbus write or None if failed
@@ -368,6 +500,7 @@ class ModbusSlaveDevice(threading.Thread):
             base_buffer_idx = details["buffer_idx"]
             base_bit_idx = details["bit_idx"]
             is_boolean = details["is_boolean"]
+            iec_size = iec_addr.size
             
             values = []
             
@@ -433,7 +566,24 @@ class ModbusSlaveDevice(threading.Thread):
                         print(f"[{self.name}] ✗ Failed to read {buffer_type} at index {current_buffer_idx}: {msg}")
                         return None
                     
-                    values.append(value)
+                    # Convert IEC value to Modbus registers
+                    try:
+                        if iec_size in ["B", "W"]:
+                            # For B and W, direct conversion (single register)
+                            element_registers = convert_iec_value_to_modbus_registers(value, iec_size)
+                        elif iec_size in ["D", "L"]:
+                            # For D and L, split into multiple registers
+                            element_registers = convert_iec_value_to_modbus_registers(value, iec_size, use_big_endian=False)
+                        else:
+                            print(f"[{self.name}] ⚠ Unsupported IEC size: {iec_size}")
+                            return None
+                        
+                        # Add all registers for this element to the output list
+                        values.extend(element_registers)
+                        
+                    except ValueError as e:
+                        print(f"[{self.name}] ✗ Error converting IEC value to registers: {e}")
+                        return None
             
             return values
                         
@@ -496,7 +646,13 @@ class ModbusSlaveDevice(threading.Thread):
                             if address < 0:
                                 raise ValueError(f"Offset must be non-negative, got: {address}")
                             
-                            count = point.length
+                            # Calculate the correct number of Modbus registers/coils needed
+                            if fc in [3, 4]:  # Register-based operations (FC 3,4)
+                                iec_size = point.iec_location.size
+                                registers_per_iec_element = get_modbus_registers_count_for_iec_size(iec_size)
+                                count = point.length * registers_per_iec_element
+                            else:  # Coil/Discrete Input operations (FC 1,2)
+                                count = point.length  # 1:1 mapping for boolean operations
                             
                             # Perform Modbus read based on function code
                             if fc == 1:  # Read Coils
