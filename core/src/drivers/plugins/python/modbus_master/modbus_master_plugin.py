@@ -219,7 +219,7 @@ class ModbusSlaveDevice(threading.Thread):
                 bit_idx = None
                 element_size_bytes = 8
             else:
-                print(f"[{self.name}] ⚠ Unsupported IEC size: {size}")
+                print(f"[{self.name}]  Unsupported IEC size: {size}")
                 return None
             
             # Determine buffer type string based on area, size, and operation direction
@@ -229,10 +229,10 @@ class ModbusSlaveDevice(threading.Thread):
                 elif area == "Q":
                     buffer_type_str = "bool_output"
                 elif area == "M":
-                    print(f"[{self.name}] ⚠ Memory area 'M' not supported for boolean operations")
+                    print(f"[{self.name}]  Memory area 'M' not supported for boolean operations")
                     return None
                 else:
-                    print(f"[{self.name}] ⚠ Unknown area for boolean: {area}")
+                    print(f"[{self.name}]  Unknown area for boolean: {area}")
                     return None
             else:  # Non-boolean (B, W, D, L)
                 if area == "M":  # Memory area
@@ -245,7 +245,7 @@ class ModbusSlaveDevice(threading.Thread):
                     elif size == "L":
                         buffer_type_str = "lint_memory"
                     else:
-                        print(f"[{self.name}] ⚠ Unsupported memory size: {size}")
+                        print(f"[{self.name}]  Unsupported memory size: {size}")
                         return None
                 elif area == "I":  # Input area
                     if size == "B":
@@ -257,7 +257,7 @@ class ModbusSlaveDevice(threading.Thread):
                     elif size == "L":
                         buffer_type_str = "lint_input"
                     else:
-                        print(f"[{self.name}] ⚠ Unsupported input size: {size}")
+                        print(f"[{self.name}]  Unsupported input size: {size}")
                         return None
                 elif area == "Q":  # Output area
                     if size == "B":
@@ -269,10 +269,10 @@ class ModbusSlaveDevice(threading.Thread):
                     elif size == "L":
                         buffer_type_str = "lint_output"
                     else:
-                        print(f"[{self.name}] ⚠ Unsupported output size: {size}")
+                        print(f"[{self.name}]  Unsupported output size: {size}")
                         return None
                 else:
-                    print(f"[{self.name}] ⚠ Unknown area: {area}")
+                    print(f"[{self.name}]  Unknown area: {area}")
                     return None
             
             return {
@@ -284,7 +284,7 @@ class ModbusSlaveDevice(threading.Thread):
             }
             
         except Exception as e:
-            print(f"[{self.name}] ✗ Error in _get_sba_access_details: {e}")
+            print(f"[{self.name}] (FAIL) Error in _get_sba_access_details: {e}")
             return None
 
     def _connect_with_retry(self) -> bool:
@@ -313,22 +313,22 @@ class ModbusSlaveDevice(threading.Thread):
                 
                 # Attempt to connect
                 if self.client.connect():
-                    print(f"[{self.name}] ✓ Connected to {host}:{port} (attempt {retry_count + 1})")
+                    print(f"[{self.name}] (PASS) Connected to {host}:{port} (attempt {retry_count + 1})")
                     self.is_connected = True
                     self.retry_delay_current = self.retry_delay_base  # Reset delay
                     return True
                 
             except Exception as e:
-                print(f"[{self.name}] ✗ Connection attempt {retry_count + 1} failed: {e}")
+                print(f"[{self.name}] (FAIL) Connection attempt {retry_count + 1} failed: {e}")
             
             # Increment counter and calculate delay
             retry_count += 1
             
             # Attempt logging
             if retry_count == 1:
-                print(f"[{self.name}] ⚠ Failed to connect to {host}:{port}, starting retry attempts...")
+                print(f"[{self.name}]  Failed to connect to {host}:{port}, starting retry attempts...")
             elif retry_count % 10 == 0:  # Log every 10 attempts
-                print(f"[{self.name}] ⚠ Connection attempt {retry_count} failed, continuing retries...")
+                print(f"[{self.name}]  Connection attempt {retry_count} failed, continuing retries...")
             
             # Wait with increasing delay (limited exponential backoff)
             delay = min(self.retry_delay_current, self.retry_delay_max)
@@ -375,7 +375,7 @@ class ModbusSlaveDevice(threading.Thread):
         try:
             details = self._get_sba_access_details(iec_addr, is_write_op=True)
             if not details:
-                print(f"[{self.name}] ✗ Failed to get SBA access details for {iec_addr}")
+                print(f"[{self.name}] (FAIL) Failed to get SBA access details for {iec_addr}")
                 return
             
             buffer_type = details["buffer_type_str"]
@@ -410,11 +410,11 @@ class ModbusSlaveDevice(threading.Thread):
                         success, msg = self.sba.write_bool_output(current_buffer_idx, actual_bit_idx, 
                                                                 current_data, thread_safe=False)
                     else:
-                        print(f"[{self.name}] ⚠ Unexpected boolean buffer type: {buffer_type}")
+                        print(f"[{self.name}]  Unexpected boolean buffer type: {buffer_type}")
                         continue
                     
                     if not success:
-                        print(f"[{self.name}] ✗ Failed to write boolean at buffer {current_buffer_idx}, bit {actual_bit_idx}: {msg}")
+                        print(f"[{self.name}] (FAIL) Failed to write boolean at buffer {current_buffer_idx}, bit {actual_bit_idx}: {msg}")
                 
                 else:
                     # For non-boolean operations, handle register conversion
@@ -437,10 +437,10 @@ class ModbusSlaveDevice(threading.Thread):
                             # For D and L, combine multiple registers
                             current_data = convert_modbus_registers_to_iec_value(element_registers, iec_size, use_big_endian=False)
                         else:
-                            print(f"[{self.name}] ⚠ Unsupported IEC size: {iec_size}")
+                            print(f"[{self.name}]  Unsupported IEC size: {iec_size}")
                             continue
                     except ValueError as e:
-                        print(f"[{self.name}] ✗ Error converting registers to IEC value: {e}")
+                        print(f"[{self.name}] (FAIL) Error converting registers to IEC value: {e}")
                         continue
                     
                     current_buffer_idx = base_buffer_idx + i
@@ -469,14 +469,14 @@ class ModbusSlaveDevice(threading.Thread):
                     elif buffer_type == "lint_memory":
                         success, msg = self.sba.write_lint_memory(current_buffer_idx, current_data, thread_safe=False)
                     else:
-                        print(f"[{self.name}] ⚠ Unknown buffer type: {buffer_type}")
+                        print(f"[{self.name}]  Unknown buffer type: {buffer_type}")
                         continue
                     
                     if not success:
-                        print(f"[{self.name}] ✗ Failed to write {buffer_type} at index {current_buffer_idx}: {msg}")
+                        print(f"[{self.name}] (FAIL) Failed to write {buffer_type} at index {current_buffer_idx}: {msg}")
                         
         except Exception as e:
-            print(f"[{self.name}] ✗ Error updating IEC buffer: {e}")
+            print(f"[{self.name}] (FAIL) Error updating IEC buffer: {e}")
 
     def _read_data_for_modbus_write(self, iec_addr, length: int) -> Optional[list]:
         """
@@ -493,7 +493,7 @@ class ModbusSlaveDevice(threading.Thread):
         try:
             details = self._get_sba_access_details(iec_addr, is_write_op=False)
             if not details:
-                print(f"[{self.name}] ✗ Failed to get SBA access details for {iec_addr}")
+                print(f"[{self.name}] (FAIL) Failed to get SBA access details for {iec_addr}")
                 return None
             
             buffer_type = details["buffer_type_str"]
@@ -522,11 +522,11 @@ class ModbusSlaveDevice(threading.Thread):
                     elif buffer_type == "bool_output":
                         value, msg = self.sba.read_bool_output(current_buffer_idx, actual_bit_idx, thread_safe=False)
                     else:
-                        print(f"[{self.name}] ⚠ Unexpected boolean buffer type: {buffer_type}")
+                        print(f"[{self.name}]  Unexpected boolean buffer type: {buffer_type}")
                         return None
                     
                     if msg != "Success":
-                        print(f"[{self.name}] ✗ Failed to read boolean at buffer {current_buffer_idx}, bit {actual_bit_idx}: {msg}")
+                        print(f"[{self.name}] (FAIL) Failed to read boolean at buffer {current_buffer_idx}, bit {actual_bit_idx}: {msg}")
                         return None
                     
                     values.append(value)
@@ -559,11 +559,11 @@ class ModbusSlaveDevice(threading.Thread):
                     elif buffer_type == "lint_memory":
                         value, msg = self.sba.read_lint_memory(current_buffer_idx, thread_safe=False)
                     else:
-                        print(f"[{self.name}] ⚠ Unknown buffer type: {buffer_type}")
+                        print(f"[{self.name}]  Unknown buffer type: {buffer_type}")
                         return None
                     
                     if msg != "Success":
-                        print(f"[{self.name}] ✗ Failed to read {buffer_type} at index {current_buffer_idx}: {msg}")
+                        print(f"[{self.name}] (FAIL) Failed to read {buffer_type} at index {current_buffer_idx}: {msg}")
                         return None
                     
                     # Convert IEC value to Modbus registers
@@ -575,20 +575,20 @@ class ModbusSlaveDevice(threading.Thread):
                             # For D and L, split into multiple registers
                             element_registers = convert_iec_value_to_modbus_registers(value, iec_size, use_big_endian=False)
                         else:
-                            print(f"[{self.name}] ⚠ Unsupported IEC size: {iec_size}")
+                            print(f"[{self.name}]  Unsupported IEC size: {iec_size}")
                             return None
                         
                         # Add all registers for this element to the output list
                         values.extend(element_registers)
                         
                     except ValueError as e:
-                        print(f"[{self.name}] ✗ Error converting IEC value to registers: {e}")
+                        print(f"[{self.name}] (FAIL) Error converting IEC value to registers: {e}")
                         return None
             
             return values
                         
         except Exception as e:
-            print(f"[{self.name}] ✗ Error reading data for Modbus write: {e}")
+            print(f"[{self.name}] (FAIL) Error reading data for Modbus write: {e}")
             return None
 
     def run(self):
@@ -669,12 +669,12 @@ class ModbusSlaveDevice(threading.Thread):
                             
                             # Check if response is valid
                             if isinstance(response, (ModbusIOException, ExceptionResponse)):
-                                print(f"[{self.name}] ✗ Modbus read error (FC {fc}, addr {address}): {response}")
+                                print(f"[{self.name}] (FAIL) Modbus read error (FC {fc}, addr {address}): {response}")
                                 # Mark as disconnected to force reconnection on next cycle
                                 self.is_connected = False
                                 continue
                             elif response.isError():
-                                print(f"[{self.name}] ✗ Modbus read failed (FC {fc}, addr {address}): {response}")
+                                print(f"[{self.name}] (FAIL) Modbus read failed (FC {fc}, addr {address}): {response}")
                                 # Mark as disconnected to force reconnection on next cycle
                                 self.is_connected = False
                                 continue
@@ -689,13 +689,13 @@ class ModbusSlaveDevice(threading.Thread):
                             read_results_to_update.append((point.iec_location, modbus_data, point.length))
                             
                         except ValueError as ve:
-                            print(f"[{self.name}] ✗ Invalid offset '{point.offset}' for FC {fc}: {ve}")
+                            print(f"[{self.name}] (FAIL) Invalid offset '{point.offset}' for FC {fc}: {ve}")
                         except ConnectionException as ce:
-                            print(f"[{self.name}] ✗ Connection error reading FC {fc}, offset {point.offset}: {ce}")
+                            print(f"[{self.name}] (FAIL) Connection error reading FC {fc}, offset {point.offset}: {ce}")
                             # Mark as disconnected to force reconnection
                             self.is_connected = False
                         except Exception as e:
-                            print(f"[{self.name}] ✗ Error reading FC {fc}, offset {point.offset}: {e}")
+                            print(f"[{self.name}] (FAIL) Error reading FC {fc}, offset {point.offset}: {e}")
                             # For other errors also mark disconnected as precaution
                             self.is_connected = False
 
@@ -709,7 +709,7 @@ class ModbusSlaveDevice(threading.Thread):
                         finally:
                             self.sba.release_mutex()
                     else:
-                        print(f"[{self.name}] ✗ Failed to acquire mutex for read updates: {lock_msg}")
+                        print(f"[{self.name}] (FAIL) Failed to acquire mutex for read updates: {lock_msg}")
 
                 # 2. WRITE OPERATIONS - Read from IEC buffers and perform Modbus writes
                 write_requests = get_batch_write_requests_from_io_points(io_points)
@@ -744,7 +744,7 @@ class ModbusSlaveDevice(threading.Thread):
                             # Read data from IEC buffers (with mutex)
                             lock_acquired, lock_msg = self.sba.acquire_mutex()
                             if not lock_acquired:
-                                print(f"[{self.name}] ✗ Failed to acquire mutex for write prep (FC {fc}, offset {point.offset}): {lock_msg}")
+                                print(f"[{self.name}] (FAIL) Failed to acquire mutex for write prep (FC {fc}, offset {point.offset}): {lock_msg}")
                                 continue
                                 
                             try:
@@ -753,7 +753,7 @@ class ModbusSlaveDevice(threading.Thread):
                                 self.sba.release_mutex()
                             
                             if values_to_write is None:
-                                print(f"[{self.name}] ✗ Failed to read data for Modbus write (FC {fc}, offset {point.offset})")
+                                print(f"[{self.name}] (FAIL) Failed to read data for Modbus write (FC {fc}, offset {point.offset})")
                                 continue
                             
                             # Perform Modbus write operation
@@ -761,13 +761,13 @@ class ModbusSlaveDevice(threading.Thread):
                                 if len(values_to_write) > 0:
                                     response = self.client.write_coil(address, values_to_write[0])
                                 else:
-                                    print(f"[{self.name}] ✗ No data to write for FC 5, offset {address}")
+                                    print(f"[{self.name}] (FAIL) No data to write for FC 5, offset {address}")
                                     continue
                             elif fc == 6:  # Write Single Register
                                 if len(values_to_write) > 0:
                                     response = self.client.write_register(address, values_to_write[0])
                                 else:
-                                    print(f"[{self.name}] ✗ No data to write for FC 6, offset {address}")
+                                    print(f"[{self.name}] (FAIL) No data to write for FC 6, offset {address}")
                                     continue
                             elif fc == 15:  # Write Multiple Coils
                                 response = self.client.write_coils(address, values_to_write)
@@ -779,22 +779,22 @@ class ModbusSlaveDevice(threading.Thread):
                             
                             # Check write response
                             if isinstance(response, (ModbusIOException, ExceptionResponse)):
-                                print(f"[{self.name}] ✗ Modbus write error (FC {fc}, addr {address}): {response}")
+                                print(f"[{self.name}] (FAIL) Modbus write error (FC {fc}, addr {address}): {response}")
                                 # Mark as disconnected to force reconnection on next cycle
                                 self.is_connected = False
                             elif response.isError():
-                                print(f"[{self.name}] ✗ Modbus write failed (FC {fc}, addr {address}): {response}")
+                                print(f"[{self.name}] (FAIL) Modbus write failed (FC {fc}, addr {address}): {response}")
                                 # Mark as disconnected to force reconnection on next cycle
                                 self.is_connected = False
                             
                         except ValueError as ve:
-                            print(f"[{self.name}] ✗ Invalid offset '{point.offset}' for FC {fc}: {ve}")
+                            print(f"[{self.name}] (FAIL) Invalid offset '{point.offset}' for FC {fc}: {ve}")
                         except ConnectionException as ce:
-                            print(f"[{self.name}] ✗ Connection error writing FC {fc}, offset {point.offset}: {ce}")
+                            print(f"[{self.name}] (FAIL) Connection error writing FC {fc}, offset {point.offset}: {ce}")
                             # Mark as disconnected to force reconnection
                             self.is_connected = False
                         except Exception as e:
-                            print(f"[{self.name}] ✗ Error writing FC {fc}, offset {point.offset}: {e}")
+                            print(f"[{self.name}] (FAIL) Error writing FC {fc}, offset {point.offset}: {e}")
                             # For other errors also mark disconnected as precaution
                             self.is_connected = False
                 
@@ -812,11 +812,11 @@ class ModbusSlaveDevice(threading.Thread):
                         remaining_sleep -= actual_sleep
 
         except ConnectionException as ce:
-            print(f"[{self.name}] ✗ Connection failed: {ce}")
+            print(f"[{self.name}] (FAIL) Connection failed: {ce}")
             # Try to reconnect
             self.is_connected = False
         except Exception as e:
-            print(f"[{self.name}] ✗ Unexpected error in thread: {e}")
+            print(f"[{self.name}] (FAIL) Unexpected error in thread: {e}")
             traceback.print_exc()
         finally:
             if self.client and self.client.connected:
@@ -834,43 +834,43 @@ def init(args_capsule):
     """
     global runtime_args, modbus_master_config, safe_buffer_accessor
     
-    print("🔧 Modbus Master Plugin - Initializing...")
+    print(" Modbus Master Plugin - Initializing...")
     
     try:
         # Extract runtime arguments from capsule
         runtime_args, error_msg = safe_extract_runtime_args_from_capsule(args_capsule)
         if not runtime_args:
-            print(f"✗ Failed to extract runtime args: {error_msg}")
+            print(f"(FAIL) Failed to extract runtime args: {error_msg}")
             return False
         
-        print("✓ Runtime arguments extracted successfully")
+        print("(PASS) Runtime arguments extracted successfully")
         
         # Create safe buffer accessor
         safe_buffer_accessor = SafeBufferAccess(runtime_args)
         if not safe_buffer_accessor.is_valid:
-            print(f"✗ Failed to create SafeBufferAccess: {safe_buffer_accessor.error_msg}")
+            print(f"(FAIL) Failed to create SafeBufferAccess: {safe_buffer_accessor.error_msg}")
             return False
         
-        print("✓ SafeBufferAccess created successfully")
+        print("(PASS) SafeBufferAccess created successfully")
         
         # Load configuration
         config_path, config_error = safe_buffer_accessor.get_config_path()
         if not config_path:
-            print(f"✗ Failed to get config path: {config_error}")
+            print(f"(FAIL) Failed to get config path: {config_error}")
             return False
         
-        print(f"📄 Loading configuration from: {config_path}")
+        print(f" Loading configuration from: {config_path}")
         
         modbus_master_config = ModbusMasterConfig()
         modbus_master_config.import_config_from_file(config_path)
         modbus_master_config.validate()
         
-        print(f"✓ Configuration loaded successfully: {len(modbus_master_config.devices)} device(s)")
+        print(f"(PASS) Configuration loaded successfully: {len(modbus_master_config.devices)} device(s)")
         
         return True
         
     except Exception as e:
-        print(f"✗ Error during initialization: {e}")
+        print(f"(FAIL) Error during initialization: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -882,11 +882,11 @@ def start_loop():
     """
     global slave_threads, modbus_master_config, safe_buffer_accessor
     
-    print("🚀 Modbus Master Plugin - Starting main loop...")
+    print(" Modbus Master Plugin - Starting main loop...")
     
     try:
         if not modbus_master_config or not safe_buffer_accessor:
-            print("✗ Plugin not properly initialized")
+            print("(FAIL) Plugin not properly initialized")
             return False
         
         # Start a thread for each configured device
@@ -895,19 +895,19 @@ def start_loop():
                 device_thread = ModbusSlaveDevice(device_config, safe_buffer_accessor)
                 device_thread.start()
                 slave_threads.append(device_thread)
-                print(f"✓ Started thread for device: {device_config.name} ({device_config.host}:{device_config.port})")
+                print(f"(PASS) Started thread for device: {device_config.name} ({device_config.host}:{device_config.port})")
             except Exception as e:
-                print(f"✗ Failed to start thread for device {device_config.name}: {e}")
+                print(f"(FAIL) Failed to start thread for device {device_config.name}: {e}")
         
         if slave_threads:
-            print(f"✓ Successfully started {len(slave_threads)} device thread(s)")
+            print(f"(PASS) Successfully started {len(slave_threads)} device thread(s)")
             return True
         else:
-            print("✗ No device threads started")
+            print("(FAIL) No device threads started")
             return False
             
     except Exception as e:
-        print(f"✗ Error starting main loop: {e}")
+        print(f"(FAIL) Error starting main loop: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -919,11 +919,11 @@ def stop_loop():
     """
     global slave_threads
     
-    print("🛑 Modbus Master Plugin - Stopping main loop...")
+    print(" Modbus Master Plugin - Stopping main loop...")
     
     try:
         if not slave_threads:
-            print("ℹ No threads to stop")
+            print(" No threads to stop")
             return True
         
         # Signal all threads to stop
@@ -932,9 +932,9 @@ def stop_loop():
                 if hasattr(thread, 'stop'):
                     thread.stop()
                 else:
-                    print(f"⚠ Thread {thread.name} does not have a stop method")
+                    print(f" Thread {thread.name} does not have a stop method")
             except Exception as e:
-                print(f"✗ Error stopping thread {thread.name}: {e}")
+                print(f"(FAIL) Error stopping thread {thread.name}: {e}")
         
         # Wait for all threads to finish (with timeout)
         timeout_per_thread = 5.0  # seconds
@@ -942,17 +942,17 @@ def stop_loop():
             try:
                 thread.join(timeout=timeout_per_thread)
                 if thread.is_alive():
-                    print(f"⚠ Thread {thread.name} did not stop within timeout")
+                    print(f" Thread {thread.name} did not stop within timeout")
                 else:
-                    print(f"✓ Thread {thread.name} stopped successfully")
+                    print(f"(PASS) Thread {thread.name} stopped successfully")
             except Exception as e:
-                print(f"✗ Error joining thread {thread.name}: {e}")
+                print(f"(FAIL) Error joining thread {thread.name}: {e}")
         
-        print("✓ Main loop stopped")
+        print("(PASS) Main loop stopped")
         return True
         
     except Exception as e:
-        print(f"✗ Error stopping main loop: {e}")
+        print(f"(FAIL) Error stopping main loop: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -964,7 +964,7 @@ def cleanup():
     """
     global runtime_args, modbus_master_config, safe_buffer_accessor, slave_threads
     
-    print("🧹 Modbus Master Plugin - Cleaning up...")
+    print(" Modbus Master Plugin - Cleaning up...")
     
     try:
         # Stop all threads if not already stopped
@@ -978,11 +978,11 @@ def cleanup():
         modbus_master_config = None
         safe_buffer_accessor = None
         
-        print("✓ Cleanup completed successfully")
+        print("(PASS) Cleanup completed successfully")
         return True
         
     except Exception as e:
-        print(f"✗ Error during cleanup: {e}")
+        print(f"(FAIL) Error during cleanup: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -992,13 +992,13 @@ if __name__ == "__main__":
     Test mode for development purposes.
     This allows running the plugin standalone for testing.
     """
-    print("🧪 Modbus Master Plugin - Test Mode")
+    print(" Modbus Master Plugin - Test Mode")
     print("This plugin is designed to be loaded by the OpenPLC runtime.")
     print("Standalone testing is not fully supported without runtime integration.")
     
     # You could add basic configuration validation here
     try:
         test_config = ModbusMasterConfig()
-        print("✓ Configuration model can be instantiated")
+        print("(PASS) Configuration model can be instantiated")
     except Exception as e:
-        print(f"✗ Error testing configuration model: {e}")
+        print(f"(FAIL) Error testing configuration model: {e}")

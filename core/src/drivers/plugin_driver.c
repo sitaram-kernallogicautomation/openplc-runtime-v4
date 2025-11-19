@@ -692,10 +692,10 @@ int python_plugin_get_symbols(plugin_instance_t *plugin)
     plugin->python_plugin = py_binds;
 
     printf("Python plugin '%s' symbols loaded successfully\n", module_name);
-    printf("  - init: %s\n", py_binds->pFuncInit ? "✓" : "✗");
-    printf("  - start_loop: %s\n", py_binds->pFuncStart ? "✓" : "✗");
-    printf("  - stop_loop: %s\n", py_binds->pFuncStop ? "✓" : "✗");
-    printf("  - cleanup: %s\n", py_binds->pFuncCleanup ? "✓" : "✗");
+    printf("  - init: %s\n", py_binds->pFuncInit ? "(PASS)" : "(FAIL)");
+    printf("  - start_loop: %s\n", py_binds->pFuncStart ? "(PASS)" : "(FAIL)");
+    printf("  - stop_loop: %s\n", py_binds->pFuncStop ? "(PASS)" : "(FAIL)");
+    printf("  - cleanup: %s\n", py_binds->pFuncCleanup ? "(PASS)" : "(FAIL)");
 
     return 0;
 }
@@ -781,12 +781,12 @@ int native_plugin_get_symbols(plugin_instance_t *plugin)
     plugin->native_plugin = native_bundle;
 
     printf("Native plugin '%s' symbols loaded successfully\n", plugin->config.path);
-    printf("  - init: ✓\n");
-    printf("  - start_loop: %s\n", native_bundle->start ? "✓" : "✗");
-    printf("  - stop_loop: %s\n", native_bundle->stop ? "✓" : "✗");
-    printf("  - cycle_start: %s\n", native_bundle->cycle_start ? "✓" : "✗");
-    printf("  - cycle_end: %s\n", native_bundle->cycle_end ? "✓" : "✗");
-    printf("  - cleanup: %s\n", native_bundle->cleanup ? "✓" : "✗");
+    printf("  - init: (PASS)\n");
+    printf("  - start_loop: %s\n", native_bundle->start ? "(PASS)" : "(FAIL)");
+    printf("  - stop_loop: %s\n", native_bundle->stop ? "(PASS)" : "(FAIL)");
+    printf("  - cycle_start: %s\n", native_bundle->cycle_start ? "(PASS)" : "(FAIL)");
+    printf("  - cycle_end: %s\n", native_bundle->cycle_end ? "(PASS)" : "(FAIL)");
+    printf("  - cleanup: %s\n", native_bundle->cleanup ? "(PASS)" : "(FAIL)");
 
     return 0;
 }

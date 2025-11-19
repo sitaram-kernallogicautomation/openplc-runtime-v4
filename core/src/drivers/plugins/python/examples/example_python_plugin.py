@@ -49,15 +49,15 @@ def init(runtime_args_capsule):
         # Extract runtime args from capsule using safe method
         runtime_args, error_msg = safe_extract_runtime_args_from_capsule(runtime_args_capsule)
         if runtime_args is None:
-            print(f"✗ Failed to extract runtime args: {error_msg}")
+            print(f"(FAIL) Failed to extract runtime args: {error_msg}")
             return False
         
-        print(f"✓ Runtime arguments extracted successfully")
+        print(f"(PASS) Runtime arguments extracted successfully")
         
         # Safely access buffer size using validation
         buffer_size, size_error = runtime_args.safe_access_buffer_size()
         if buffer_size == -1:
-            print(f"✗ Failed to access buffer size: {size_error}")
+            print(f"(FAIL) Failed to access buffer size: {size_error}")
             return False
         
         print(f"  Buffer size: {buffer_size}")
@@ -67,17 +67,17 @@ def init(runtime_args_capsule):
         # Create safe buffer access wrapper
         _safe_buffer_access = SafeBufferAccess(runtime_args)
         if not _safe_buffer_access.is_valid:
-            print(f"✗ Failed to create safe buffer access: {_safe_buffer_access.error_msg}")
+            print(f"(FAIL) Failed to create safe buffer access: {_safe_buffer_access.error_msg}")
             return False
         
         # Store runtime args for later use
         _runtime_args = runtime_args
         
-        print("✓ Plugin initialized successfully")
+        print("(PASS) Plugin initialized successfully")
         return True
         
     except Exception as e:
-        print(f"✗ Plugin initialization failed: {e}")
+        print(f"(FAIL) Plugin initialization failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -114,7 +114,7 @@ def stop_loop():
         _stop.set()
         _mainthread.join()
         _mainthread = None
-        print("✓ Main thread stopped")
+        print("(PASS) Main thread stopped")
 
 def cleanup():
     """
@@ -129,7 +129,7 @@ def cleanup():
     _initialized = False
     _runtime_args = None
     
-    print("✓ Plugin cleaned up successfully")
+    print("(PASS) Plugin cleaned up successfully")
 
 if __name__ == "__main__":
     print("This is an example Python plugin for OpenPLC Runtime")

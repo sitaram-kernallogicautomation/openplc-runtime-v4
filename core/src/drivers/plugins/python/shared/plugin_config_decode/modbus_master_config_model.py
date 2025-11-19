@@ -154,9 +154,9 @@ class ModbusMasterConfig(PluginConfigContract):
                 try:
                     device = ModbusDeviceConfig.from_dict(device_config)
                     self.devices.append(device)
-                    print(f"✓ Device '{device.name}' loaded: {device.host}:{device.port}")
+                    print(f"(PASS) Device '{device.name}' loaded: {device.host}:{device.port}")
                 except Exception as e:
-                    print(f"✗ Error parsing device config #{i+1}: {e}")
+                    print(f"(FAIL) Error parsing device config #{i+1}: {e}")
                     raise ValueError(f"Failed to parse device configuration #{i+1}: {e}")
             
             print(f"Total devices loaded: {len(self.devices)}")
