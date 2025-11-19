@@ -3,9 +3,10 @@
 /core/generated/
 /memory-bank
 
-# .vscode/
-.*/
+.vscode/
+#.*/
 /venvs/
+.venv/
 __pycache__/
 .clinerules
 
