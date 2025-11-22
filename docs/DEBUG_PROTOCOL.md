@@ -352,7 +352,7 @@ The WebSocket interface is implemented in the web server:
 **Cause:** Runtime not responding or command malformed
 
 **Solution:**
-1. Check PLC runtime status via `/api?argument=status`
+1. Check PLC runtime status via `/api/status`
 2. Verify command format (hex string with spaces)
 3. Check runtime logs for errors
 
@@ -376,6 +376,7 @@ The WebSocket interface is implemented in the web server:
 
 ## Related Documentation
 
+- [Editor Integration](EDITOR_INTEGRATION.md) - How OpenPLC Editor connects to runtime
 - [webserver/DEBUG_WEBSOCKET.md](../webserver/DEBUG_WEBSOCKET.md) - WebSocket connection details
 - [API Reference](API.md) - REST API endpoints
 - [Architecture](ARCHITECTURE.md) - System overview

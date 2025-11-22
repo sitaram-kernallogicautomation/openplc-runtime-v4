@@ -163,7 +163,7 @@ This will:
 3. Activate runtime virtual environment
 4. Start the web server (which manages the PLC runtime)
 
-**Access:** https://localhost:8443
+**Note:** The runtime will listen on https://localhost:8443 for connections from the OpenPLC Editor. Do not open this in a browser - there is no web interface. Connect from the OpenPLC Editor desktop application.
 
 ### Run Web Server Only
 
@@ -351,13 +351,13 @@ sudo python3 -m pdb -m webserver.app
 View runtime logs:
 
 ```bash
-curl -k https://localhost:8443/api?argument=runtime-logs | jq
+curl -k https://localhost:8443/api/runtime-logs | jq
 ```
 
 View compilation logs:
 
 ```bash
-curl -k https://localhost:8443/api?argument=compilation-status | jq
+curl -k https://localhost:8443/api/compilation-status | jq
 ```
 
 ### Network Debugging
@@ -621,6 +621,7 @@ pip install -e .
 
 ## Related Documentation
 
+- [Editor Integration](EDITOR_INTEGRATION.md) - How OpenPLC Editor connects to runtime
 - [Architecture](ARCHITECTURE.md) - System architecture
 - [API Reference](API.md) - REST API documentation
 - [Compilation Flow](COMPILATION_FLOW.md) - Build pipeline

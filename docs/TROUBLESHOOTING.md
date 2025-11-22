@@ -121,7 +121,7 @@ No response from runtime
    ```
 2. Check runtime logs:
    ```bash
-   curl -k https://localhost:8443/api?argument=runtime-logs
+   curl -k https://localhost:8443/api/runtime-logs
    ```
 3. Restart the runtime:
    ```bash
@@ -152,13 +152,13 @@ Failed to set real-time priority
 
 ---
 
-### Web Interface Issues
+### Connection Issues
 
-#### Cannot Access Web Interface
+#### Cannot Connect from OpenPLC Editor
 
 **Symptoms:**
-- Browser shows "Connection refused"
-- "This site can't be reached"
+- Editor shows "Connection refused"
+- "Cannot connect to runtime"
 
 **Solution:**
 1. Verify runtime is running:
@@ -171,7 +171,7 @@ Failed to set real-time priority
    ```
 3. Test with curl:
    ```bash
-   curl -k https://localhost:8443/api?argument=ping
+   curl -k https://localhost:8443/api/ping
    ```
 4. Check firewall rules:
    ```bash
@@ -179,30 +179,18 @@ Failed to set real-time priority
    sudo iptables -L
    ```
 
-#### Certificate Warning
+#### Certificate Issues
 
 **Symptoms:**
-- Browser shows "Your connection is not private"
-- "NET::ERR_CERT_AUTHORITY_INVALID"
+- OpenPLC Editor shows certificate errors
 
 **Solution:**
-This is normal for self-signed certificates. Click "Advanced" and "Proceed to localhost" (or similar).
+The OpenPLC Editor handles self-signed certificates automatically. If you're using the API directly with curl or other tools, use the `-k` flag to accept self-signed certificates.
 
-**Alternative:**
-Trust the certificate:
-```bash
-# Linux
-sudo cp webserver/certOPENPLC.pem /usr/local/share/ca-certificates/openplc.crt
-sudo update-ca-certificates
-
-# macOS
-sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain webserver/certOPENPLC.pem
-```
-
-#### Login Issues
+#### Authentication Issues
 
 **Symptoms:**
-- Cannot log in with default credentials
+- Cannot create user or login from OpenPLC Editor
 - "Invalid username or password"
 
 **Solution:**
@@ -248,7 +236,7 @@ CompilationStatus: FAILED
 **Solution:**
 1. Check compilation logs:
    ```bash
-   curl -k https://localhost:8443/api?argument=compilation-status
+   curl -k https://localhost:8443/api/compilation-status
    ```
 2. Verify all required files in ZIP:
    - Config0.c
@@ -331,7 +319,7 @@ Failed to load PLC program
    ```
 3. Test from inside container:
    ```bash
-   docker exec openplc-runtime curl -k https://localhost:8443/api?argument=ping
+   docker exec openplc-runtime curl -k https://localhost:8443/api/ping
    ```
 
 #### Volume Permission Errors
@@ -432,7 +420,7 @@ WebSocket connection failed
 **Solution:**
 1. Check PLC is running:
    ```bash
-   curl -k https://localhost:8443/api?argument=status
+   curl -k https://localhost:8443/api/status
    ```
 2. Verify command format (hex string with spaces)
 3. Check runtime logs for errors
@@ -548,7 +536,7 @@ Variable index out of range
 3. Check log level setting
 4. Test log retrieval:
    ```bash
-   curl -k https://localhost:8443/api?argument=runtime-logs
+   curl -k https://localhost:8443/api/runtime-logs
    ```
 
 #### Logs Too Verbose
@@ -556,7 +544,7 @@ Variable index out of range
 **Solution:**
 1. Filter by level:
    ```bash
-   curl -k "https://localhost:8443/api?argument=runtime-logs&level=ERROR"
+   curl -k "https://localhost:8443/api/runtime-logs?level=ERROR"
    ```
 2. Adjust log level in code (LOG_LEVEL_INFO, LOG_LEVEL_WARNING, LOG_LEVEL_ERROR)
 3. Implement log rotation
@@ -582,12 +570,12 @@ Before reporting issues, collect:
 
 3. **Runtime Logs:**
    ```bash
-   curl -k https://localhost:8443/api?argument=runtime-logs > runtime-logs.txt
+   curl -k https://localhost:8443/api/runtime-logs > runtime-logs.txt
    ```
 
 4. **Compilation Logs:**
    ```bash
-   curl -k https://localhost:8443/api?argument=compilation-status > compilation-logs.txt
+   curl -k https://localhost:8443/api/compilation-status > compilation-logs.txt
    ```
 
 5. **Process Status:**
@@ -618,6 +606,7 @@ When reporting issues:
 
 ## Related Documentation
 
+- [Editor Integration](EDITOR_INTEGRATION.md) - How OpenPLC Editor connects to runtime
 - [Architecture](ARCHITECTURE.md) - System overview
 - [API Reference](API.md) - REST endpoints
 - [Docker Deployment](DOCKER.md) - Container issues

@@ -25,13 +25,13 @@ docker pull ghcr.io/autonomy-logic/openplc-runtime:latest
 docker run -d \
   --name openplc-runtime \
   -p 8443:8443 \
+  --cap-add=SYS_NICE \
+  --cap-add=SYS_RESOURCE \
   -v openplc-runtime-data:/var/run/runtime \
   ghcr.io/autonomy-logic/openplc-runtime:latest
 ```
 
-**Access:** https://localhost:8443
-
-**Note:** Accept the self-signed certificate warning in your browser.
+**Note:** The runtime will listen on port 8443 for connections from the OpenPLC Editor. Do not open https://localhost:8443 in a browser - there is no web interface. Connect to it from the OpenPLC Editor desktop application.
 
 ### Stop and Remove
 
@@ -105,7 +105,7 @@ docker run -d \
 
 ### Default Port
 
-The runtime exposes port 8443 for HTTPS access:
+The runtime exposes port 8443 for REST API access from the OpenPLC Editor:
 
 ```bash
 -p 8443:8443
@@ -116,7 +116,7 @@ The runtime exposes port 8443 for HTTPS access:
 To use a different host port:
 
 ```bash
--p 9443:8443  # Access via https://localhost:9443
+-p 9443:8443  # Editor connects to https://localhost:9443
 ```
 
 ### Localhost Only
@@ -248,7 +248,7 @@ services:
       - TZ=America/New_York
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-k", "-f", "https://localhost:8443/api?argument=ping"]
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:8443/api/ping"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -480,7 +480,7 @@ docker logs openplc-runtime
 - Volume permission errors
 - Insufficient resources
 
-### Cannot Access Web Interface
+### Cannot Connect from OpenPLC Editor
 
 **Verify container is running:**
 ```bash
@@ -494,7 +494,7 @@ docker port openplc-runtime
 
 **Test connectivity:**
 ```bash
-curl -k https://localhost:8443/api?argument=ping
+curl -k https://localhost:8443/api/ping
 ```
 
 ### Real-Time Performance Issues
@@ -607,11 +607,12 @@ jobs:
       - uses: actions/checkout@v2
       - name: Test API
         run: |
-          curl -k https://localhost:8443/api?argument=ping
+          curl -k https://localhost:8443/api/ping
 ```
 
 ## Related Documentation
 
+- [Editor Integration](EDITOR_INTEGRATION.md) - How OpenPLC Editor connects to runtime
 - [Architecture](ARCHITECTURE.md) - System overview
 - [Security](SECURITY.md) - Security considerations
 - [Troubleshooting](TROUBLESHOOTING.md) - Common issues

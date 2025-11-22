@@ -222,7 +222,7 @@ The runtime handles signals gracefully:
 ### Port Exposure
 
 **Default Ports:**
-- 8443 (HTTPS) - Web interface and API
+- 8443 (HTTPS) - REST API for OpenPLC Editor communication
 
 **Recommendations:**
 - Use firewall to restrict access
@@ -379,7 +379,7 @@ If you discover a security vulnerability:
 
 ### Known Limitations
 
-1. **Self-Signed Certificates**: Default certificates not trusted by browsers
+1. **Self-Signed Certificates**: Default certificates are self-signed (OpenPLC Editor handles this automatically)
 2. **No Rate Limiting**: API endpoints not rate-limited
 3. **No Account Lockout**: No protection against brute force
 4. **No Audit Trail**: Limited logging of security events
@@ -420,6 +420,7 @@ For environments with data protection requirements (GDPR, etc.):
 
 ## Related Documentation
 
+- [Editor Integration](EDITOR_INTEGRATION.md) - How OpenPLC Editor connects to runtime
 - [Architecture](ARCHITECTURE.md) - System overview
 - [API Reference](API.md) - REST endpoints
 - [Debug Protocol](DEBUG_PROTOCOL.md) - WebSocket interface

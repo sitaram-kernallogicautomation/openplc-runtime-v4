@@ -12,14 +12,15 @@ Users create their PLC program in OpenPLC Editor v4:
 
 1. Write ladder logic, structured text, or other IEC 61131-3 languages
 2. Define location variables (e.g., %IX0.0, %QX0.0)
-3. Click "Generate program for OpenPLC Runtime v4"
-4. Editor generates a ZIP file containing all necessary source files
+3. Click "Compile" in the editor (local compilation: JSON → XML → ST → C)
+4. Click "Upload to Runtime" - Editor packages source files into program.zip and uploads
 
 ### 2. ZIP File Upload
 
-The ZIP file is uploaded via the web interface:
+The OpenPLC Editor uploads the ZIP file via REST API:
 
-**Endpoint:** `POST /api?argument=upload-file`
+**Endpoint:** `POST /api/upload-file`
+**Authentication:** JWT token (Bearer header)
 
 **File Contents:**
 - `LOCATED_VARIABLES.h` - Variable location definitions
@@ -117,7 +118,7 @@ The build process maintains state throughout compilation:
 - `SUCCESS` - Build completed successfully
 - `FAILED` - Build failed (see logs)
 
-**Status Endpoint:** `GET /api?argument=compilation-status`
+**Status Endpoint:** `GET /api/compilation-status`
 
 **Response:**
 ```json
@@ -296,6 +297,7 @@ Add dependencies in `scripts/compile.sh` linking step.
 
 ## Related Documentation
 
+- [Editor Integration](EDITOR_INTEGRATION.md) - How OpenPLC Editor uploads programs
 - [Architecture](ARCHITECTURE.md) - System overview
 - [API Reference](API.md) - Upload endpoint details
 - [Security](SECURITY.md) - File validation details

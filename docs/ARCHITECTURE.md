@@ -2,13 +2,13 @@
 
 ## Overview
 
-OpenPLC Runtime v4 is a dual-process system that provides industrial automation capabilities through a web-based management interface and a real-time PLC execution engine.
+OpenPLC Runtime v4 is a dual-process system that provides industrial automation capabilities through a REST API server for OpenPLC Editor communication and a real-time PLC execution engine.
 
 ## System Components
 
-### 1. Web Server Process (Python/Flask)
+### 1. REST API Server Process (Python/Flask)
 
-The web server is a Flask-based HTTPS application that provides:
+The REST API server is a Flask-based HTTPS application that provides:
 
 - **REST API** for PLC control and management
 - **WebSocket interface** for real-time debugging
@@ -50,7 +50,7 @@ The two processes communicate via Unix domain sockets:
 
 ### Log Socket
 - **Path:** `/run/runtime/log_runtime.socket`
-- **Purpose:** Real-time log streaming from PLC runtime to web server
+- **Purpose:** Real-time log streaming from PLC runtime to REST API server
 - **Implementation:** `core/src/plc_app/utils/log.c`
 
 ## PLC Lifecycle States
@@ -73,10 +73,10 @@ EMPTY → INIT → RUNNING ⟷ STOPPED → ERROR
 
 ## Threading Model
 
-### Web Server Threads
+### REST API Server Threads
 
-1. **Main Flask Thread**: Handles HTTP/HTTPS requests
-2. **WebSocket Thread**: Manages debug connections
+1. **Main Flask Thread**: Handles HTTP/HTTPS requests from OpenPLC Editor
+2. **WebSocket Thread**: Manages debug connections from OpenPLC Editor
 3. **Compilation Thread**: Runs build process asynchronously
 4. **Runtime Manager Thread**: Monitors PLC runtime process
 
@@ -174,9 +174,9 @@ Stats are logged every 5 seconds via the stats thread.
 
 ## Error Handling
 
-### Web Server
+### REST API Server
 - Build failures tracked in `BuildStatus` enum
-- Compilation logs streamed to client
+- Compilation logs streamed to OpenPLC Editor
 - Graceful degradation on runtime disconnection
 
 ### PLC Runtime
@@ -189,7 +189,7 @@ Stats are logged every 5 seconds via the stats thread.
 
 ```
 openplc-runtime/
-├── webserver/              # Flask web application
+├── webserver/              # Flask REST API server
 │   ├── app.py             # Main application entry
 │   ├── restapi.py         # REST API blueprint
 │   ├── debug_websocket.py # WebSocket debug interface
@@ -239,6 +239,7 @@ openplc-runtime/
 
 ## Related Documentation
 
+- [Editor Integration](EDITOR_INTEGRATION.md) - How OpenPLC Editor connects to runtime
 - [Compilation Flow](COMPILATION_FLOW.md) - Build pipeline details
 - [API Reference](API.md) - REST endpoints and responses
 - [Debug Protocol](DEBUG_PROTOCOL.md) - WebSocket debug interface
