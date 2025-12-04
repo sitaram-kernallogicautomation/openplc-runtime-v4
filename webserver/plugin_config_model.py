@@ -15,8 +15,8 @@ import shutil
 
 class PluginType(IntEnum):
     """Plugin type enumeration."""
-    PYTHON = 1
-    NATIVE = 0
+    PYTHON = 0
+    NATIVE = 1
 
 
 @dataclass
@@ -108,15 +108,33 @@ class PluginsConfiguration:
     @classmethod
     def from_file(cls, file_path: str = "plugins.conf") -> 'PluginsConfiguration':
         """
-        Load plugin configurations from a plugins.conf file.
+        Load plugin configuration from a plugins.conf file.
+        If the file doesn't exist, copy from plugins_default.conf.
         
         Args:
             file_path: Path to the plugins.conf file
             
         Returns:
-            PluginsConfiguration object
+            PluginsConfiguration object with loaded plugins
         """
         config = cls()
+        
+        # If plugins.conf doesn't exist, copy from plugins_default.conf
+        if not os.path.exists(file_path):
+            default_file = "plugins_default.conf"
+            print(f"[PLUGIN]: Config file {file_path} not found, copying from {default_file}")
+            
+            if os.path.exists(default_file):
+                try:
+                    import shutil
+                    shutil.copy2(default_file, file_path)
+                    print(f"[PLUGIN]: Successfully copied {default_file} to {file_path}")
+                except Exception as e:
+                    print(f"[PLUGIN]: Failed to copy {default_file}: {e}")
+                    return config
+            else:
+                print(f"[PLUGIN]: Default config file {default_file} not found")
+                return config
         
         if not os.path.exists(file_path):
             return config

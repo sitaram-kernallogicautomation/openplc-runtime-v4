@@ -165,35 +165,60 @@ def update_plugin_configurations(generated_dir: str = "core/generated"):
     plugins_conf_path = "plugins.conf"
     conf_dir = os.path.join(generated_dir, "conf")
 
-    # Check if conf directory exists
-    if not os.path.exists(conf_dir):
-        build_state.log(f"[INFO] No conf directory found in {generated_dir}, skipping plugin configuration update\n")
-        return
+    build_state.log(f"[DEBUG] update_plugin_configurations called with generated_dir='{generated_dir}'\n")
+    build_state.log(f"[DEBUG] Looking for config files in: {conf_dir}\n")
 
     # Load current plugin configuration using the dataclass
     plugins_config = PluginsConfiguration.from_file(plugins_conf_path)
+    build_state.log(f"[DEBUG] Loaded {len(plugins_config.plugins)} plugins from {plugins_conf_path}\n")
     
-    # Use the utility method to update plugins based on available config files
-    # Copy config files to plugin directories instead of referencing them directly
-    plugins_updated, update_messages = plugins_config.update_plugins_from_config_dir(conf_dir, copy_to_plugin_dirs=True)
-    
-    # Log the updates
-    import glob
-    config_files = glob.glob(os.path.join(conf_dir, "*.json"))
-    available_configs = {os.path.splitext(os.path.basename(f))[0]: f for f in config_files}
-    build_state.log(f"[INFO] Found {len(available_configs)} config files in {conf_dir}: {list(available_configs.keys())}\n")
-    
-    for message in update_messages:
-        if "Copied config file" in message:
+    # Log initial state
+    for plugin in plugins_config.plugins:
+        build_state.log(f"[DEBUG] Initial state - {plugin.name}: enabled={plugin.enabled}, config_path='{plugin.config_path}'\n")
+
+    # Check if conf directory exists
+    if not os.path.exists(conf_dir):
+        build_state.log(f"[INFO] No conf directory found in {generated_dir}, disabling all plugins\n")
+        # When there's no conf directory, disable all currently enabled plugins
+        plugins_updated = 0
+        update_messages = []
+        for plugin in plugins_config.plugins:
+            if plugin.enabled:
+                plugin.enabled = False
+                plugins_updated += 1
+                update_messages.append(f"Disabled plugin '{plugin.name}' (no conf directory found)")
+        
+        # Log the updates
+        build_state.log(f"[INFO] Found 0 config files (no conf directory): []\n")
+        
+        for message in update_messages:
             build_state.log(f"[INFO] {message}\n")
-        elif "Enabled plugin" in message or "Disabled plugin" in message:
-            build_state.log(f"[INFO] {message}\n")
-        else:
-            build_state.log(f"[WARNING] {message}\n")
+    else:
+        # Process config files normally when conf directory exists
+        # Use the utility method to update plugins based on available config files
+        # Copy config files to plugin directories instead of referencing them directly
+        plugins_updated, update_messages = plugins_config.update_plugins_from_config_dir(conf_dir, copy_to_plugin_dirs=True)
+        
+        # Log the updates
+        config_files = glob.glob(os.path.join(conf_dir, "*.json"))
+        available_configs = {os.path.splitext(os.path.basename(f))[0]: f for f in config_files}
+        build_state.log(f"[INFO] Found {len(available_configs)} config files in {conf_dir}: {list(available_configs.keys())}\n")
+        
+        for message in update_messages:
+            if "Copied config file" in message:
+                build_state.log(f"[INFO] {message}\n")
+            elif "Enabled plugin" in message or "Disabled plugin" in message:
+                build_state.log(f"[INFO] {message}\n")
+            else:
+                build_state.log(f"[WARNING] {message}\n")
 
     # Save the updated configuration
     if plugins_config.to_file(plugins_conf_path):
         build_state.log(f"[INFO] Plugin configuration update complete. {plugins_updated} plugins updated.\n")
+        
+        # Log final state
+        for plugin in plugins_config.plugins:
+            build_state.log(f"[DEBUG] Final state - {plugin.name}: enabled={plugin.enabled}, config_path='{plugin.config_path}'\n")
         
         # Log configuration summary
         summary = plugins_config.get_config_summary()

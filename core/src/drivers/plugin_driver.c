@@ -101,6 +101,42 @@ int plugin_driver_load_config(plugin_driver_t *driver, const char *config_file)
         return -1;
     }
 
+    // Check if config file exists, if not copy from default
+    if (access(config_file, F_OK) != 0)
+    {
+        printf("[PLUGIN]: Config file %s not found, copying from plugins_default.conf\n", config_file);
+        
+        // Check if default config exists
+        if (access("plugins_default.conf", F_OK) != 0)
+        {
+            printf("[PLUGIN]: Default config file plugins_default.conf not found\n");
+            return -1;
+        }
+        
+        // Copy default config to target config file
+        FILE *src = fopen("plugins_default.conf", "r");
+        FILE *dst = fopen(config_file, "w");
+        
+        if (!src || !dst)
+        {
+            printf("[PLUGIN]: Failed to copy default config\n");
+            if (src) fclose(src);
+            if (dst) fclose(dst);
+            return -1;
+        }
+        
+        char buffer[1024];
+        size_t bytes;
+        while ((bytes = fread(buffer, 1, sizeof(buffer), src)) > 0)
+        {
+            fwrite(buffer, 1, bytes, dst);
+        }
+        
+        fclose(src);
+        fclose(dst);
+        printf("[PLUGIN]: Successfully copied default config to %s\n", config_file);
+    }
+
     plugin_config_t configs[MAX_PLUGINS];
     int config_count = parse_plugin_config(config_file, configs, MAX_PLUGINS);
     if (config_count < 0)
@@ -158,6 +194,14 @@ int plugin_driver_init(plugin_driver_t *driver)
     for (int i = 0; i < driver->plugin_count; i++)
     {
         plugin_instance_t *plugin = &driver->plugins[i];
+        
+        // Skip disabled plugins
+        if (!plugin->config.enabled)
+        {
+            printf("[PLUGIN]: Skipping disabled plugin: %s\n", plugin->config.name);
+            continue;
+        }
+        
         if (plugin->config.type == PLUGIN_TYPE_PYTHON && plugin->python_plugin &&
             plugin->python_plugin->pFuncInit)
         {
@@ -240,6 +284,14 @@ int plugin_driver_start(plugin_driver_t *driver)
     for (int i = 0; i < driver->plugin_count; i++)
     {
         plugin_instance_t *plugin = &driver->plugins[i];
+        
+        // Skip disabled plugins
+        if (!plugin->config.enabled)
+        {
+            printf("[PLUGIN]: Skipping disabled plugin during start: %s\n", plugin->config.name);
+            continue;
+        }
+        
         switch (plugin->config.type)
         {
         case PLUGIN_TYPE_PYTHON:
@@ -383,14 +435,22 @@ int plugin_driver_restart(plugin_driver_t *driver)
     }
     PyGILState_Release(gstate);
 
-    // Reinitialize all plugins
+    // CRITICAL: Reload configuration from plugins.conf file
+    printf("[PLUGIN]: Reloading plugin configuration...\n");
+    if (plugin_driver_load_config(driver, "plugins.conf") != 0)
+    {
+        fprintf(stderr, "[PLUGIN]: Failed to reload plugin configuration during restart\n");
+        return -1;
+    }
+
+    // Reinitialize all plugins (only enabled ones)
     if (plugin_driver_init(driver) != 0)
     {
         fprintf(stderr, "[PLUGIN]: Failed to reinitialize plugins during restart\n");
         return -1;
     }
 
-    // Restart all plugins
+    // Restart all plugins (only enabled ones)
     if (plugin_driver_start(driver) != 0)
     {
         fprintf(stderr, "[PLUGIN]: Failed to start plugins during restart\n");
