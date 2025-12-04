@@ -355,6 +355,52 @@ int plugin_driver_stop(plugin_driver_t *driver)
     return 0;
 }
 
+int plugin_driver_restart(plugin_driver_t *driver)
+{
+    if (!driver)
+    {
+        return -1;
+    }
+
+    printf("[PLUGIN]: Restarting all plugins...\n");
+
+    // Stop all running plugins first
+    if (plugin_driver_stop(driver) != 0)
+    {
+        fprintf(stderr, "[PLUGIN]: Failed to stop plugins during restart\n");
+        return -1;
+    }
+
+    // Clean up plugins without destroying the driver
+    gstate = PyGILState_Ensure();
+    for (int i = 0; i < driver->plugin_count; i++)
+    {
+        plugin_instance_t *plugin = &driver->plugins[i];
+        if (plugin->python_plugin)
+        {
+            python_plugin_cleanup(plugin);
+        }
+    }
+    PyGILState_Release(gstate);
+
+    // Reinitialize all plugins
+    if (plugin_driver_init(driver) != 0)
+    {
+        fprintf(stderr, "[PLUGIN]: Failed to reinitialize plugins during restart\n");
+        return -1;
+    }
+
+    // Restart all plugins
+    if (plugin_driver_start(driver) != 0)
+    {
+        fprintf(stderr, "[PLUGIN]: Failed to start plugins during restart\n");
+        return -1;
+    }
+
+    printf("[PLUGIN]: All plugins restarted successfully\n");
+    return 0;
+}
+
 void plugin_driver_destroy(plugin_driver_t *driver)
 {
     if (!driver)

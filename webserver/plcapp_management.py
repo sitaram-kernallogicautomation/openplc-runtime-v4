@@ -4,10 +4,12 @@ import os
 import zipfile
 import subprocess
 import threading
+import glob
 from typing import Final
 
 from webserver.runtimemanager import RuntimeManager
 from webserver.logger import get_logger, LogParser
+from webserver.plugin_config_model import PluginsConfiguration, PluginConfig
 
 logger, _ = get_logger("runtime", use_buffer=True)
 
@@ -151,6 +153,62 @@ def safe_extract(zip_path, dest_dir, valid_files):
                 dst.write(src.read())
 
             logger.debug("Extracted: %s", out_path)
+
+
+def update_plugin_configurations(generated_dir: str = "core/generated"):
+    """
+    Update plugin configurations based on available config files.
+    
+    Scans generated/conf/ for config files, copies them to plugin directories,
+    and updates plugins.conf to enable/disable plugins accordingly.
+    """
+    plugins_conf_path = "plugins.conf"
+    conf_dir = os.path.join(generated_dir, "conf")
+
+    # Check if conf directory exists
+    if not os.path.exists(conf_dir):
+        build_state.log(f"[INFO] No conf directory found in {generated_dir}, skipping plugin configuration update\n")
+        return
+
+    # Load current plugin configuration using the dataclass
+    plugins_config = PluginsConfiguration.from_file(plugins_conf_path)
+    
+    # Use the utility method to update plugins based on available config files
+    # Copy config files to plugin directories instead of referencing them directly
+    plugins_updated, update_messages = plugins_config.update_plugins_from_config_dir(conf_dir, copy_to_plugin_dirs=True)
+    
+    # Log the updates
+    import glob
+    config_files = glob.glob(os.path.join(conf_dir, "*.json"))
+    available_configs = {os.path.splitext(os.path.basename(f))[0]: f for f in config_files}
+    build_state.log(f"[INFO] Found {len(available_configs)} config files in {conf_dir}: {list(available_configs.keys())}\n")
+    
+    for message in update_messages:
+        if "Copied config file" in message:
+            build_state.log(f"[INFO] {message}\n")
+        elif "Enabled plugin" in message or "Disabled plugin" in message:
+            build_state.log(f"[INFO] {message}\n")
+        else:
+            build_state.log(f"[WARNING] {message}\n")
+
+    # Save the updated configuration
+    if plugins_config.to_file(plugins_conf_path):
+        build_state.log(f"[INFO] Plugin configuration update complete. {plugins_updated} plugins updated.\n")
+        
+        # Log configuration summary
+        summary = plugins_config.get_config_summary()
+        build_state.log(f"[INFO] Plugin summary: {summary['enabled']}/{summary['total']} enabled "
+                       f"({summary['python']} Python, {summary['native']} Native)\n")
+        
+        # Validate configurations and log any issues
+        issues = plugins_config.validate_plugins()
+        if issues:
+            build_state.log("[WARNING] Plugin validation issues found:\n")
+            for issue in issues:
+                build_state.log(f"[WARNING] {issue}\n")
+    else:
+        build_state.log("[ERROR] Failed to save updated plugin configuration\n")
+
 
 def run_compile(runtime_manager: RuntimeManager, cwd: str = "core/generated"):
     """Run compile script synchronously (wait for completion) and update status/logs."""

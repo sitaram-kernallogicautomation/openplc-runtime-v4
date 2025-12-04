@@ -101,6 +101,19 @@ int load_plc_program(PluginManager *pm)
 
             return -1;
         }
+
+        // Restart all plugins after successful thread creation
+        if (plugin_driver && plugin_driver_restart(plugin_driver) != 0)
+        {
+            log_error("Failed to restart plugins after PLC thread creation");
+            // Note: We don't return error here as PLC is already running
+            // This is a warning condition, not a fatal error
+        }
+        else
+        {
+            log_info("Plugins restarted successfully after PLC thread creation");
+        }
+
         return 0;
     }
     else
