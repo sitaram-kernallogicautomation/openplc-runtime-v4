@@ -19,15 +19,24 @@ typedef enum
 typedef int (*plugin_init_func_t)(void *);
 typedef void (*plugin_start_loop_func_t)();
 typedef void (*plugin_stop_loop_func_t)();
-typedef void (*plugin_run_cycle_func_t)();
+typedef void (*plugin_cycle_start_func_t)();
+typedef void (*plugin_cycle_end_func_t)();
 typedef void (*plugin_cleanup_func_t)();
+
+// Logging function pointer types
+typedef void (*plugin_log_info_func_t)(const char *fmt, ...);
+typedef void (*plugin_log_debug_func_t)(const char *fmt, ...);
+typedef void (*plugin_log_warn_func_t)(const char *fmt, ...);
+typedef void (*plugin_log_error_func_t)(const char *fmt, ...);
 
 typedef struct
 {
+    void *handle; // Handle to the loaded shared library
     plugin_init_func_t init;
     plugin_start_loop_func_t start;
     plugin_stop_loop_func_t stop;
-    plugin_run_cycle_func_t run_cycle;
+    plugin_cycle_start_func_t cycle_start;
+    plugin_cycle_end_func_t cycle_end;
     plugin_cleanup_func_t cleanup;
 } plugin_funct_bundle_t;
 
@@ -58,6 +67,12 @@ typedef struct
     // Buffer size information
     int buffer_size;
     int bits_per_buffer;
+
+    // Logging functions
+    plugin_log_info_func_t log_info;
+    plugin_log_debug_func_t log_debug;
+    plugin_log_warn_func_t log_warn;
+    plugin_log_error_func_t log_error;
 } plugin_runtime_args_t;
 
 // Plugin instance structure
@@ -65,6 +80,7 @@ typedef struct plugin_instance_s
 {
     PluginManager *manager;
     python_binds_t *python_plugin;
+    plugin_funct_bundle_t *native_plugin;
     // pthread_t thread;
     int running;
     plugin_config_t config;
@@ -84,12 +100,16 @@ int plugin_driver_load_config(plugin_driver_t *driver, const char *config_file);
 int plugin_driver_init(plugin_driver_t *driver);
 int plugin_driver_start(plugin_driver_t *driver);
 int plugin_driver_stop(plugin_driver_t *driver);
+int plugin_driver_restart(plugin_driver_t *driver);
 void plugin_driver_destroy(plugin_driver_t *driver);
 int plugin_mutex_take(pthread_mutex_t *mutex);
 int plugin_mutex_give(pthread_mutex_t *mutex);
 
 // Python plugin functions
 int python_plugin_get_symbols(plugin_instance_t *plugin);
+
+// Native plugin functions
+int native_plugin_get_symbols(plugin_instance_t *plugin);
 
 // Runtime arguments generation
 void *generate_structured_args_with_driver(plugin_type_t type, plugin_driver_t *driver,
