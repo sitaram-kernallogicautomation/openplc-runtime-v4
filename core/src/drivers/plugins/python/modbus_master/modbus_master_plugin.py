@@ -21,6 +21,7 @@ from shared.python_plugin_types import (
     PluginRuntimeArgs,
     safe_extract_runtime_args_from_capsule,
     SafeBufferAccess,
+    SafeLoggingAccess,
     PluginStructureValidator
 )
 
@@ -63,6 +64,7 @@ except ImportError:
 runtime_args = None
 modbus_master_config: ModbusMasterConfig = None
 safe_buffer_accessor: SafeBufferAccess = None
+_safe_logging_access: SafeLoggingAccess = None
 slave_threads: List[threading.Thread] = []
 
 class ModbusSlaveDevice(threading.Thread):
@@ -314,7 +316,7 @@ def init(args_capsule):
     Initialize the Modbus Master plugin.
     This function is called once when the plugin is loaded.
     """
-    global runtime_args, modbus_master_config, safe_buffer_accessor
+    global runtime_args, modbus_master_config, safe_buffer_accessor, _safe_logging_access
     
     print(" Modbus Master Plugin - Initializing...")
     
@@ -327,6 +329,8 @@ def init(args_capsule):
         
         print("(PASS) Runtime arguments extracted successfully")
         
+        _safe_logging_access = SafeLoggingAccess(runtime_args)
+
         # Create safe buffer accessor
         safe_buffer_accessor = SafeBufferAccess(runtime_args)
         if not safe_buffer_accessor.is_valid:
@@ -341,13 +345,13 @@ def init(args_capsule):
             print(f"(FAIL) Failed to get config path: {config_error}")
             return False
         
-        print(f" Loading configuration from: {config_path}")
+        _safe_logging_access.log_debug(f" Loading configuration from: {config_path}")
         
         modbus_master_config = ModbusMasterConfig()
         modbus_master_config.import_config_from_file(config_path)
         modbus_master_config.validate()
         
-        print(f"(PASS) Configuration loaded successfully: {len(modbus_master_config.devices)} device(s)")
+        _safe_logging_access.log_info(f"(PASS) Configuration loaded successfully: {len(modbus_master_config.devices)} device(s)")
         
         return True
         
@@ -361,13 +365,13 @@ def start_loop():
     Start the main loop for all configured Modbus devices.
     This function is called after successful initialization.
     """
-    global slave_threads, modbus_master_config, safe_buffer_accessor
+    global slave_threads, modbus_master_config, safe_buffer_accessor, _safe_logging_access
     
-    print(" Modbus Master Plugin - Starting main loop...")
+    _safe_logging_access.log_info(" Modbus Master Plugin - Starting main loop...")
     
     try:
         if not modbus_master_config or not safe_buffer_accessor:
-            print("(FAIL) Plugin not properly initialized")
+            _safe_logging_access.log_error("(FAIL) Plugin not properly initialized")
             return False
         
         # Start a thread for each configured device
@@ -376,19 +380,19 @@ def start_loop():
                 device_thread = ModbusSlaveDevice(device_config, safe_buffer_accessor)
                 device_thread.start()
                 slave_threads.append(device_thread)
-                print(f"(PASS) Started thread for device: {device_config.name} ({device_config.host}:{device_config.port})")
+                _safe_logging_access.log_info(f"(PASS) Started thread for device: {device_config.name} ({device_config.host}:{device_config.port})")
             except Exception as e:
-                print(f"(FAIL) Failed to start thread for device {device_config.name}: {e}")
+                _safe_logging_access.log_error(f"(FAIL) Failed to start thread for device {device_config.name}: {e}")
         
         if slave_threads:
-            print(f"(PASS) Successfully started {len(slave_threads)} device thread(s)")
+            _safe_logging_access.log_info(f"(PASS) Successfully started {len(slave_threads)} device thread(s)")
             return True
         else:
-            print("(FAIL) No device threads started")
+            _safe_logging_access.log_error("(FAIL) No device threads started")
             return False
             
     except Exception as e:
-        print(f"(FAIL) Error starting main loop: {e}")
+        _safe_logging_access.log_error(f"(FAIL) Error starting main loop: {e}")
         traceback.print_exc()
         return False
 
@@ -397,13 +401,13 @@ def stop_loop():
     Stop the main loop and all running device threads.
     This function is called when the plugin needs to be stopped.
     """
-    global slave_threads
+    global slave_threads, _safe_logging_access
     
-    print(" Modbus Master Plugin - Stopping main loop...")
+    _safe_logging_access.log_info(" Modbus Master Plugin - Stopping main loop...")
     
     try:
         if not slave_threads:
-            print(" No threads to stop")
+            _safe_logging_access.log_info(" No threads to stop")
             return True
         
         # Signal all threads to stop
@@ -426,13 +430,13 @@ def stop_loop():
                 else:
                     print(f"(PASS) Thread {thread.name} stopped successfully")
             except Exception as e:
-                print(f"(FAIL) Error joining thread {thread.name}: {e}")
+                _safe_logging_access.log_error(f"(FAIL) Error joining thread {thread.name}: {e}")
         
-        print("(PASS) Main loop stopped")
+        _safe_logging_access.log_info("(PASS) Main loop stopped")
         return True
         
     except Exception as e:
-        print(f"(FAIL) Error stopping main loop: {e}")
+        _safe_logging_access.log_error(f"(FAIL) Error stopping main loop: {e}")
         traceback.print_exc()
         return False
 
@@ -441,9 +445,9 @@ def cleanup():
     Clean up resources before plugin unload.
     This function is called when the plugin is being unloaded.
     """
-    global runtime_args, modbus_master_config, safe_buffer_accessor, slave_threads
+    global runtime_args, modbus_master_config, safe_buffer_accessor, slave_threads, _safe_logging_access
     
-    print(" Modbus Master Plugin - Cleaning up...")
+    _safe_logging_access.log_info(" Modbus Master Plugin - Cleaning up...")
     
     try:
         # Stop all threads if not already stopped
@@ -456,6 +460,7 @@ def cleanup():
         runtime_args = None
         modbus_master_config = None
         safe_buffer_accessor = None
+        _safe_logging_access = None
         
         print("(PASS) Cleanup completed successfully")
         return True
