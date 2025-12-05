@@ -97,12 +97,10 @@ int symbols_init(PluginManager *pm);
 void image_tables_fill_null_pointers(void);
 
 /**
- * @brief Clear temporary pointers from image tables
+ * @brief Clear all pointers from image tables
  *
- * This function resets any pointers that were filled by
- * image_tables_fill_null_pointers() back to NULL. It identifies temporary
- * pointers by checking if they fall within the address range of the backing
- * buffers.
+ * This function resets all pointers in the image tables back to NULL.
+ * All pointers will be remapped when a new program is loaded via glueVars().
  *
  * Must be called before unloading a PLC program to ensure clean state for
  * the next program load.

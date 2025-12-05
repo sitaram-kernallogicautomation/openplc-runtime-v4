@@ -121,46 +121,6 @@ static IEC_UINT temp_int_memory[BUFFER_SIZE];
 static IEC_UDINT temp_dint_memory[BUFFER_SIZE];
 static IEC_ULINT temp_lint_memory[BUFFER_SIZE];
 
-// Helper macros for address range checking
-#define IS_IN_TEMP_BOOL_INPUT(p)                                                                   \
-    ((p) >= &temp_bool_input[0][0] && (p) <= &temp_bool_input[BUFFER_SIZE - 1][7])
-
-#define IS_IN_TEMP_BOOL_OUTPUT(p)                                                                  \
-    ((p) >= &temp_bool_output[0][0] && (p) <= &temp_bool_output[BUFFER_SIZE - 1][7])
-
-#define IS_IN_TEMP_BYTE_INPUT(p)                                                                   \
-    ((p) >= &temp_byte_input[0] && (p) <= &temp_byte_input[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_BYTE_OUTPUT(p)                                                                  \
-    ((p) >= &temp_byte_output[0] && (p) <= &temp_byte_output[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_INT_INPUT(p)                                                                    \
-    ((p) >= &temp_int_input[0] && (p) <= &temp_int_input[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_INT_OUTPUT(p)                                                                   \
-    ((p) >= &temp_int_output[0] && (p) <= &temp_int_output[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_DINT_INPUT(p)                                                                   \
-    ((p) >= &temp_dint_input[0] && (p) <= &temp_dint_input[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_DINT_OUTPUT(p)                                                                  \
-    ((p) >= &temp_dint_output[0] && (p) <= &temp_dint_output[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_LINT_INPUT(p)                                                                   \
-    ((p) >= &temp_lint_input[0] && (p) <= &temp_lint_input[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_LINT_OUTPUT(p)                                                                  \
-    ((p) >= &temp_lint_output[0] && (p) <= &temp_lint_output[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_INT_MEMORY(p)                                                                   \
-    ((p) >= &temp_int_memory[0] && (p) <= &temp_int_memory[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_DINT_MEMORY(p)                                                                  \
-    ((p) >= &temp_dint_memory[0] && (p) <= &temp_dint_memory[BUFFER_SIZE - 1])
-
-#define IS_IN_TEMP_LINT_MEMORY(p)                                                                  \
-    ((p) >= &temp_lint_memory[0] && (p) <= &temp_lint_memory[BUFFER_SIZE - 1])
-
 void image_tables_fill_null_pointers(void)
 {
     int filled_count = 0;
@@ -319,143 +279,92 @@ void image_tables_fill_null_pointers(void)
 
 void image_tables_clear_null_pointers(void)
 {
-    int cleared_count = 0;
+    // Clear all pointers in image tables
+    // All pointers will be remapped when a new program is loaded via glueVars()
 
-    // Clear boolean input pointers that point to temp buffers
+    // Clear boolean input pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
         for (int b = 0; b < 8; b++)
         {
-            if (bool_input[i][b] != NULL && IS_IN_TEMP_BOOL_INPUT(bool_input[i][b]))
-            {
-                bool_input[i][b] = NULL;
-                cleared_count++;
-            }
+            bool_input[i][b] = NULL;
         }
     }
 
-    // Clear boolean output pointers that point to temp buffers
+    // Clear boolean output pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
         for (int b = 0; b < 8; b++)
         {
-            if (bool_output[i][b] != NULL && IS_IN_TEMP_BOOL_OUTPUT(bool_output[i][b]))
-            {
-                bool_output[i][b] = NULL;
-                cleared_count++;
-            }
+            bool_output[i][b] = NULL;
         }
     }
 
-    // Clear byte input pointers that point to temp buffers
+    // Clear byte input pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (byte_input[i] != NULL && IS_IN_TEMP_BYTE_INPUT(byte_input[i]))
-        {
-            byte_input[i] = NULL;
-            cleared_count++;
-        }
+        byte_input[i] = NULL;
     }
 
-    // Clear byte output pointers that point to temp buffers
+    // Clear byte output pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (byte_output[i] != NULL && IS_IN_TEMP_BYTE_OUTPUT(byte_output[i]))
-        {
-            byte_output[i] = NULL;
-            cleared_count++;
-        }
+        byte_output[i] = NULL;
     }
 
-    // Clear int input pointers that point to temp buffers
+    // Clear int input pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (int_input[i] != NULL && IS_IN_TEMP_INT_INPUT(int_input[i]))
-        {
-            int_input[i] = NULL;
-            cleared_count++;
-        }
+        int_input[i] = NULL;
     }
 
-    // Clear int output pointers that point to temp buffers
+    // Clear int output pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (int_output[i] != NULL && IS_IN_TEMP_INT_OUTPUT(int_output[i]))
-        {
-            int_output[i] = NULL;
-            cleared_count++;
-        }
+        int_output[i] = NULL;
     }
 
-    // Clear dint input pointers that point to temp buffers
+    // Clear dint input pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (dint_input[i] != NULL && IS_IN_TEMP_DINT_INPUT(dint_input[i]))
-        {
-            dint_input[i] = NULL;
-            cleared_count++;
-        }
+        dint_input[i] = NULL;
     }
 
-    // Clear dint output pointers that point to temp buffers
+    // Clear dint output pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (dint_output[i] != NULL && IS_IN_TEMP_DINT_OUTPUT(dint_output[i]))
-        {
-            dint_output[i] = NULL;
-            cleared_count++;
-        }
+        dint_output[i] = NULL;
     }
 
-    // Clear lint input pointers that point to temp buffers
+    // Clear lint input pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (lint_input[i] != NULL && IS_IN_TEMP_LINT_INPUT(lint_input[i]))
-        {
-            lint_input[i] = NULL;
-            cleared_count++;
-        }
+        lint_input[i] = NULL;
     }
 
-    // Clear lint output pointers that point to temp buffers
+    // Clear lint output pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (lint_output[i] != NULL && IS_IN_TEMP_LINT_OUTPUT(lint_output[i]))
-        {
-            lint_output[i] = NULL;
-            cleared_count++;
-        }
+        lint_output[i] = NULL;
     }
 
-    // Clear int memory pointers that point to temp buffers
+    // Clear int memory pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (int_memory[i] != NULL && IS_IN_TEMP_INT_MEMORY(int_memory[i]))
-        {
-            int_memory[i] = NULL;
-            cleared_count++;
-        }
+        int_memory[i] = NULL;
     }
 
-    // Clear dint memory pointers that point to temp buffers
+    // Clear dint memory pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (dint_memory[i] != NULL && IS_IN_TEMP_DINT_MEMORY(dint_memory[i]))
-        {
-            dint_memory[i] = NULL;
-            cleared_count++;
-        }
+        dint_memory[i] = NULL;
     }
 
-    // Clear lint memory pointers that point to temp buffers
+    // Clear lint memory pointers
     for (int i = 0; i < BUFFER_SIZE; i++)
     {
-        if (lint_memory[i] != NULL && IS_IN_TEMP_LINT_MEMORY(lint_memory[i]))
-        {
-            lint_memory[i] = NULL;
-            cleared_count++;
-        }
+        lint_memory[i] = NULL;
     }
 
-    log_info("Cleared %d temporary pointers from image tables", cleared_count);
+    log_info("Cleared all pointers in image tables");
 }
