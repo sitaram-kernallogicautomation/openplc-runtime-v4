@@ -4,6 +4,7 @@ set -euo pipefail
 # Detect the project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OPENPLC_DIR="$SCRIPT_DIR"
+VENV_DIR="$OPENPLC_DIR/venvs/runtime"
 
 # Ensure we're in the project directory
 cd "$OPENPLC_DIR"
@@ -60,32 +61,77 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+setup_runtime_venv() {
+    if [ -d "$VENV_DIR" ]; then
+        log_info "Runtime virtual environment already exists."
+    else
+        log_info "Creating runtime virtual environment..."
+        python3 -m venv "$VENV_DIR"
+        if [ $? -ne 0 ]; then
+            log_error "Failed to create runtime virtual environment."
+            exit 1
+        fi
+            "$VENV_DIR/bin/python3" -m pip install --upgrade pip
+            "$VENV_DIR/bin/python3" -m pip install -r "$OPENPLC_DIR/requirements.txt"
+            source "$VENV_DIR/bin/activate"
+            log_success "Runtime virtual environment created and activated."
+    fi
+}
+
+# Function to get enabled plugins from plugins.conf
+get_enabled_plugins() {
+    local plugins_conf="$OPENPLC_DIR/plugins.conf"
+    local enabled_plugins=()
+    
+    if [ ! -f "$plugins_conf" ]; then
+        log_warning "plugins.conf not found: $plugins_conf"
+        return 0
+    fi
+    
+    while IFS= read -r line; do
+        # Skip empty lines and comments
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        
+        # Parse the line: name,path,enabled,type,config_path,venv_path
+        IFS=',' read -ra FIELDS <<< "$line"
+        local plugin_name="${FIELDS[0]}"
+        local enabled="${FIELDS[2]}"
+        
+        # Check if plugin is enabled (1)
+        if [[ "$enabled" == "1" ]]; then
+            enabled_plugins+=("$plugin_name")
+        fi
+    done < "$plugins_conf"
+    
+    printf '%s\n' "${enabled_plugins[@]}"
+}
+
 # Function to setup plugin virtual environments
 setup_plugin_venvs() {
     local plugins_dir="$OPENPLC_DIR/core/src/drivers/plugins/python"
     local manage_script="$OPENPLC_DIR/scripts/manage_plugin_venvs.sh"
-    
+
     log_info "Checking for plugins that need virtual environments..."
-    
+
     # Check if plugins directory exists
     if [ ! -d "$plugins_dir" ]; then
         log_warning "Plugins directory not found: $plugins_dir"
         return 0
     fi
-    
-    # Find all directories with requirements.txt
+
+    # Find directories with requirements.txt for all plugins (regardless of enabled status)
     local plugins_with_requirements=()
     while IFS= read -r -d '' requirements_file; do
         # Get the directory name (plugin name)
         local plugin_dir=$(dirname "$requirements_file")
         local plugin_name=$(basename "$plugin_dir")
-        
+
         # Skip if it's in examples or shared directories (common libraries)
         if [[ "$plugin_dir" == *"/examples/"* ]] || [[ "$plugin_dir" == *"/shared/"* ]]; then
             log_info "Skipping $plugin_name (in examples/shared directory)"
             continue
         fi
-        
+
         plugins_with_requirements+=("$plugin_name")
         log_info "Found plugin with requirements: $plugin_name"
     done < <(find "$plugins_dir" -name "requirements.txt" -type f -print0)
@@ -138,8 +184,7 @@ setup_plugin_venvs() {
 
 # Setup plugin virtual environments
 setup_plugin_venvs
-
-source "$OPENPLC_DIR/venvs/runtime/bin/activate"
+setup_runtime_venv
 
 # Start the PLC webserver
 "$OPENPLC_DIR/venvs/runtime/bin/python3" -m "webserver.app"
