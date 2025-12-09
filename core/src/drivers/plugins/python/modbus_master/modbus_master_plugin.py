@@ -230,6 +230,11 @@ class ModbusSlaveDevice(threading.Thread):
                         )
                         if converted_values is not None and details is not None:
                             preconverted_updates.append((converted_values, details))
+                        else:
+                            print(
+                                f"[{self.name}] (FAIL) Data conversion failed "
+                                f"for IEC address {iec_addr}, length={length}"
+                            )
 
                     # Phase 2: Write pre-converted values under the mutex
                     if preconverted_updates:
