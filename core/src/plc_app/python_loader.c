@@ -19,12 +19,17 @@
 // This file is responsible for loading function blocks written in Python.
 // Python function blocks communicate with the PLC runtime via shared memory.
 //
+// Logging is done via function pointers that are set by the runtime after
+// loading libplc.so. This avoids symbol resolution issues between the
+// shared library and the main executable.
+//
 // Thiago Alves, Dec 2025
 //-----------------------------------------------------------------------------
 
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,7 +38,60 @@
 #include <unistd.h>
 
 #include "include/iec_python.h"
-#include "utils/log.h"
+
+// Function pointers for logging - set by python_loader_set_loggers()
+static void (*py_log_info)(const char *fmt, ...)  = NULL;
+static void (*py_log_error)(const char *fmt, ...) = NULL;
+
+// Fallback logging to stderr when loggers not set
+static void fallback_log(const char *level, const char *fmt, va_list args)
+{
+    fprintf(stderr, "[%s] ", level);
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+}
+
+static void py_log_info_fallback(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    fallback_log("INFO", fmt, args);
+    va_end(args);
+}
+
+static void py_log_error_fallback(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    fallback_log("ERROR", fmt, args);
+    va_end(args);
+}
+
+// Wrapper macros for logging
+#define LOG_INFO(...)                                                                              \
+    do                                                                                             \
+    {                                                                                              \
+        if (py_log_info)                                                                           \
+            py_log_info(__VA_ARGS__);                                                              \
+        else                                                                                       \
+            py_log_info_fallback(__VA_ARGS__);                                                     \
+    } while (0)
+
+#define LOG_ERROR(...)                                                                             \
+    do                                                                                             \
+    {                                                                                              \
+        if (py_log_error)                                                                          \
+            py_log_error(__VA_ARGS__);                                                             \
+        else                                                                                       \
+            py_log_error_fallback(__VA_ARGS__);                                                    \
+    } while (0)
+
+void python_loader_set_loggers(void (*log_info_func)(const char *, ...),
+                               void (*log_error_func)(const char *, ...))
+{
+    py_log_info  = log_info_func;
+    py_log_error = log_error_func;
+}
 
 /**
  * @brief Thread function that runs the Python script and logs its output
@@ -50,7 +108,7 @@ static void *runner_thread(void *arg)
     FILE *fp        = popen(cmd, "r");
     if (fp == NULL)
     {
-        log_error("[Python] Failed to start process: %s", cmd);
+        LOG_ERROR("[Python] Failed to start process: %s", cmd);
         free((void *)cmd);
         return NULL;
     }
@@ -64,7 +122,7 @@ static void *runner_thread(void *arg)
         {
             buffer[len - 1] = '\0';
         }
-        log_info("[Python] %s", buffer);
+        LOG_INFO("[Python] %s", buffer);
     }
 
     pclose(fp);
@@ -78,7 +136,7 @@ int create_shm_name(char *buf, size_t size)
     int fd          = mkstemp(shm_mask);
     if (fd == -1)
     {
-        log_error("[Python loader] mkstemp failed: %s", strerror(errno));
+        LOG_ERROR("[Python loader] mkstemp failed: %s", strerror(errno));
         return -1;
     }
     close(fd);
@@ -100,12 +158,12 @@ int python_block_loader(const char *script_name, const char *script_content, cha
     FILE *fp = fopen(script_name, "w");
     if (!fp)
     {
-        log_error("[Python loader] Failed to write Python script: %s", strerror(errno));
+        LOG_ERROR("[Python loader] Failed to write Python script: %s", strerror(errno));
         return -1;
     }
     chmod(script_name, 0640);
 
-    log_info("[Python loader] Random shared memory location: %s", shm_name);
+    LOG_INFO("[Python loader] Random shared memory location: %s", shm_name);
 
     snprintf(shm_in_name, sizeof(shm_in_name), "%s_in", shm_name);
     snprintf(shm_out_name, sizeof(shm_out_name), "%s_out", shm_name);
@@ -120,19 +178,19 @@ int python_block_loader(const char *script_name, const char *script_content, cha
     int shm_in_fd = shm_open(shm_in_name, O_CREAT | O_RDWR, 0660);
     if (shm_in_fd < 0)
     {
-        log_error("[Python loader] shm_open (input) error: %s", strerror(errno));
+        LOG_ERROR("[Python loader] shm_open (input) error: %s", strerror(errno));
         return -1;
     }
     if (ftruncate(shm_in_fd, shm_in_size) == -1)
     {
-        log_error("[Python loader] ftruncate (input) error: %s", strerror(errno));
+        LOG_ERROR("[Python loader] ftruncate (input) error: %s", strerror(errno));
         close(shm_in_fd);
         return -1;
     }
     *shm_in_ptr = mmap(NULL, shm_in_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_in_fd, 0);
     if (*shm_in_ptr == MAP_FAILED)
     {
-        log_error("[Python loader] mmap (input) error: %s", strerror(errno));
+        LOG_ERROR("[Python loader] mmap (input) error: %s", strerror(errno));
         close(shm_in_fd);
         return -1;
     }
@@ -141,7 +199,7 @@ int python_block_loader(const char *script_name, const char *script_content, cha
     int shm_out_fd = shm_open(shm_out_name, O_CREAT | O_RDWR, 0660);
     if (shm_out_fd < 0)
     {
-        log_error("[Python loader] shm_open (output) error: %s", strerror(errno));
+        LOG_ERROR("[Python loader] shm_open (output) error: %s", strerror(errno));
         close(shm_in_fd);
         munmap(*shm_in_ptr, shm_in_size);
         shm_unlink(shm_in_name);
@@ -149,7 +207,7 @@ int python_block_loader(const char *script_name, const char *script_content, cha
     }
     if (ftruncate(shm_out_fd, shm_out_size) == -1)
     {
-        log_error("[Python loader] ftruncate (output) error: %s", strerror(errno));
+        LOG_ERROR("[Python loader] ftruncate (output) error: %s", strerror(errno));
         close(shm_out_fd);
         close(shm_in_fd);
         munmap(*shm_in_ptr, shm_in_size);
@@ -159,7 +217,7 @@ int python_block_loader(const char *script_name, const char *script_content, cha
     *shm_out_ptr = mmap(NULL, shm_out_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_out_fd, 0);
     if (*shm_out_ptr == MAP_FAILED)
     {
-        log_error("[Python loader] mmap (output) error: %s", strerror(errno));
+        LOG_ERROR("[Python loader] mmap (output) error: %s", strerror(errno));
         close(shm_out_fd);
         close(shm_in_fd);
         munmap(*shm_in_ptr, shm_in_size);
@@ -175,7 +233,7 @@ int python_block_loader(const char *script_name, const char *script_content, cha
     char *cmd = malloc(512);
     if (cmd == NULL)
     {
-        log_error("[Python loader] malloc failed for cmd buffer");
+        LOG_ERROR("[Python loader] malloc failed for cmd buffer");
         return -1;
     }
     snprintf(cmd, 512, "python3 -u %s 2>&1", script_name);
@@ -184,13 +242,13 @@ int python_block_loader(const char *script_name, const char *script_content, cha
     pthread_t tid;
     if (pthread_create(&tid, NULL, runner_thread, cmd) != 0)
     {
-        log_error("[Python loader] pthread_create failed: %s", strerror(errno));
+        LOG_ERROR("[Python loader] pthread_create failed: %s", strerror(errno));
         free(cmd);
         return -1;
     }
     pthread_detach(tid);
 
-    log_info("[Python loader] Started Python function block: %s", script_name);
+    LOG_INFO("[Python loader] Started Python function block: %s", script_name);
 
     return 0;
 }

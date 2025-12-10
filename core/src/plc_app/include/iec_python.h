@@ -67,6 +67,19 @@ extern "C"
                             size_t shm_in_size, size_t shm_out_size, void **shm_in_ptr,
                             void **shm_out_ptr, pid_t pid);
 
+    /**
+     * @brief Set logging function pointers for the Python loader
+     *
+     * This function must be called after loading libplc.so to inject the
+     * runtime's logging functions. Without this, logging will fall back
+     * to stderr output.
+     *
+     * @param log_info_func Pointer to the log_info function
+     * @param log_error_func Pointer to the log_error function
+     */
+    void python_loader_set_loggers(void (*log_info_func)(const char *, ...),
+                                   void (*log_error_func)(const char *, ...));
+
 #ifdef __cplusplus
 }
 #endif
