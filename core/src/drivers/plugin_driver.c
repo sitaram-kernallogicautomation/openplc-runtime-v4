@@ -227,15 +227,7 @@ int plugin_driver_init(plugin_driver_t *driver)
         return -1;
     }
 
-    PyGILState_STATE local_gstate;
-    bool gil_acquired = false;
-    
-    // Acquire GIL if we have Python plugins
-    if (has_python_plugin)
-    {
-        local_gstate = PyGILState_Ensure();
-        gil_acquired = true;
-    }
+    PyGILState_STATE local_gstate = PyGILState_Ensure();
 
     // #chamdo a função init de cada plugin aqui
     for (int i = 0; i < driver->plugin_count; i++)
@@ -259,10 +251,8 @@ int plugin_driver_init(plugin_driver_t *driver)
             {
                 fprintf(stderr, "Failed to generate runtime args for plugin: %s\n",
                         plugin->config.name);
-                if (gil_acquired)
-                {
-                    PyGILState_Release(local_gstate);
-                }
+
+                PyGILState_Release(local_gstate);
                 return -1;
             }
             // Call the Python init function with proper capsule
@@ -277,10 +267,8 @@ int plugin_driver_init(plugin_driver_t *driver)
                 PyErr_Print();
                 fprintf(stderr, "Python init function failed for plugin: %s\n",
                         plugin->config.name);
-                if (gil_acquired)
-                {
-                    PyGILState_Release(local_gstate);
-                }
+
+                PyGILState_Release(local_gstate);
                 return -1;
             }
             Py_DECREF(result);
@@ -314,10 +302,7 @@ int plugin_driver_init(plugin_driver_t *driver)
         }
     }
 
-    if (gil_acquired)
-    {
-        PyGILState_Release(local_gstate);
-    }
+    PyGILState_Release(local_gstate);
 
     return 0;
 }
@@ -336,11 +321,8 @@ int plugin_driver_start(plugin_driver_t *driver)
         return 0;
     }
 
-    if (has_python_plugin)
-    {
-        gstate      = PyGILState_Ensure();
-        main_tstate = PyEval_SaveThread();
-    }
+    gstate      = PyGILState_Ensure();
+    main_tstate = PyEval_SaveThread();
 
     for (int i = 0; i < driver->plugin_count; i++)
     {
@@ -429,14 +411,7 @@ int plugin_driver_stop(plugin_driver_t *driver)
         return 0;
     }
 
-    PyGILState_STATE local_gstate;
-    bool gil_acquired = false;
-    
-    if (has_python_plugin)
-    {
-        local_gstate = PyGILState_Ensure();
-        gil_acquired = true;
-    }
+    PyGILState_STATE local_gstate = PyGILState_Ensure();
 
     // Signal all plugins to stop
     for (int i = 0; i < driver->plugin_count; i++)
@@ -479,10 +454,7 @@ int plugin_driver_stop(plugin_driver_t *driver)
         // Plugin manager only handles destruction, not stopping
     }
 
-    if (gil_acquired)
-    {
-        PyGILState_Release(local_gstate);
-    }
+    PyGILState_Release(local_gstate);
 
     return 0;
 }
@@ -558,14 +530,7 @@ void plugin_driver_destroy(plugin_driver_t *driver)
         return;
     }
 
-    PyGILState_STATE local_gstate;
-    bool gil_acquired = false;
-    
-    if (has_python_plugin)
-    {
-        local_gstate = PyGILState_Ensure();
-        gil_acquired = true;
-    }
+    PyGILState_STATE local_gstate = PyGILState_Ensure();
 
     plugin_driver_stop(driver);
 
@@ -597,12 +562,11 @@ void plugin_driver_destroy(plugin_driver_t *driver)
         }
     }
 
-    if (gil_acquired)
-    {
-        PyGILState_Release(local_gstate);
-        PyEval_RestoreThread(main_tstate);
-        Py_FinalizeEx();
-    }
+
+    PyGILState_Release(local_gstate);
+    PyEval_RestoreThread(main_tstate);
+    Py_FinalizeEx();
+
     pthread_mutex_destroy(&driver->buffer_mutex);
 
     free(driver);
