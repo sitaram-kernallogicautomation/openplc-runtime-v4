@@ -115,7 +115,7 @@ static PyObject *create_python_runtime_args_capsule(plugin_runtime_args_t *args)
     return capsule;
 }
 
-int plugin_driver_load_config(plugin_driver_t *driver, const char *config_file)
+int plugin_driver_update_config(plugin_driver_t *driver, const char *config_file)
 {
     if (!driver || !config_file)
     {
@@ -178,6 +178,17 @@ int plugin_driver_load_config(plugin_driver_t *driver, const char *config_file)
             has_python_plugin = 1;
         }
     }
+    return 0;
+}
+
+int plugin_driver_load_config(plugin_driver_t *driver, const char *config_file)
+{
+    if (!driver || !config_file)
+    {
+        return -1;
+    }
+
+    plugin_driver_update_config(driver, config_file);
 
     // Now retrieve the function symbols and initialize
     // struct plugin_instance_t para cada plugin.
@@ -191,7 +202,6 @@ int plugin_driver_load_config(plugin_driver_t *driver, const char *config_file)
             {
                 fprintf(stderr, "Failed to get Python plugin symbols for: %s\n",
                         plugin->config.path);
-                plugin_manager_destroy(plugin->manager);
                 return -1;
             }
         }
@@ -217,6 +227,16 @@ int plugin_driver_init(plugin_driver_t *driver)
         return -1;
     }
 
+    PyGILState_STATE local_gstate;
+    bool gil_acquired = false;
+    
+    // Acquire GIL if we have Python plugins
+    if (has_python_plugin)
+    {
+        local_gstate = PyGILState_Ensure();
+        gil_acquired = true;
+    }
+
     // #chamdo a função init de cada plugin aqui
     for (int i = 0; i < driver->plugin_count; i++)
     {
@@ -239,6 +259,10 @@ int plugin_driver_init(plugin_driver_t *driver)
             {
                 fprintf(stderr, "Failed to generate runtime args for plugin: %s\n",
                         plugin->config.name);
+                if (gil_acquired)
+                {
+                    PyGILState_Release(local_gstate);
+                }
                 return -1;
             }
             // Call the Python init function with proper capsule
@@ -253,6 +277,10 @@ int plugin_driver_init(plugin_driver_t *driver)
                 PyErr_Print();
                 fprintf(stderr, "Python init function failed for plugin: %s\n",
                         plugin->config.name);
+                if (gil_acquired)
+                {
+                    PyGILState_Release(local_gstate);
+                }
                 return -1;
             }
             Py_DECREF(result);
@@ -286,6 +314,11 @@ int plugin_driver_init(plugin_driver_t *driver)
         }
     }
 
+    if (gil_acquired)
+    {
+        PyGILState_Release(local_gstate);
+    }
+
     return 0;
 }
 
@@ -305,8 +338,8 @@ int plugin_driver_start(plugin_driver_t *driver)
 
     if (has_python_plugin)
     {
-        main_tstate = PyEval_SaveThread();
         gstate      = PyGILState_Ensure();
+        main_tstate = PyEval_SaveThread();
     }
 
     for (int i = 0; i < driver->plugin_count; i++)
@@ -328,6 +361,8 @@ int plugin_driver_start(plugin_driver_t *driver)
             // NOTE: The thread is created python-side
             if (plugin->python_plugin && plugin->python_plugin->pFuncStart)
             {
+                // Acquire GIL for this specific Python call
+                PyGILState_STATE local_gil = PyGILState_Ensure();
                 PyObject *res = PyObject_CallNoArgs(plugin->python_plugin->pFuncStart);
                 if (!res)
                 {
@@ -342,6 +377,7 @@ int plugin_driver_start(plugin_driver_t *driver)
                 Py_DECREF(
                     res); // There's no problem in calling DECREF here because it only
                           // handles the returned object from start_loop, not the function itself
+                PyGILState_Release(local_gil);
 
                 plugin->running = 1;
             }
@@ -374,10 +410,8 @@ int plugin_driver_start(plugin_driver_t *driver)
             break;
         }
     }
-    if (has_python_plugin)
-    {
-        PyGILState_Release(gstate);
-    }
+    // Don't call PyGILState_Release here since we used PyEval_SaveThread
+    // The GIL will be restored in plugin_driver_destroy
     return 0;
 }
 
@@ -395,6 +429,15 @@ int plugin_driver_stop(plugin_driver_t *driver)
         return 0;
     }
 
+    PyGILState_STATE local_gstate;
+    bool gil_acquired = false;
+    
+    if (has_python_plugin)
+    {
+        local_gstate = PyGILState_Ensure();
+        gil_acquired = true;
+    }
+
     // Signal all plugins to stop
     for (int i = 0; i < driver->plugin_count; i++)
     {
@@ -404,6 +447,11 @@ int plugin_driver_stop(plugin_driver_t *driver)
             driver->plugins[i].running)
         {
             plugin_instance_t *plugin = &driver->plugins[i];
+            if (plugin->config.enabled == 0)
+            {
+                printf("[PLUGIN]: Plugin %s is disabled, skipping stop.\n", plugin->config.name);
+                continue;
+            }
 
             PyObject *res = PyObject_CallNoArgs(driver->plugins[i].python_plugin->pFuncStop);
             if (!res)
@@ -416,7 +464,7 @@ int plugin_driver_stop(plugin_driver_t *driver)
                 printf("[PLUGIN]: Plugin %s stopped successfully.\n", plugin->config.name);
             }
             Py_DECREF(res);
-
+            printf("[PLUGIN]: Plugin %s stopped...\n", driver->plugins[i].config.name);
             plugin->running = 0;
         }
 
@@ -428,9 +476,12 @@ int plugin_driver_stop(plugin_driver_t *driver)
             printf("[PLUGIN]: Native plugin %s stopped successfully.\n", plugin->config.name);
             plugin->running = 0;
         }
-
-        printf("[PLUGIN]: Plugin %s stopped...\n", driver->plugins[i].config.name);
         // Plugin manager only handles destruction, not stopping
+    }
+
+    if (gil_acquired)
+    {
+        PyGILState_Release(local_gstate);
     }
 
     return 0;
@@ -453,16 +504,20 @@ int plugin_driver_restart(plugin_driver_t *driver)
     }
 
     // Clean up plugins without destroying the driver
-    gstate = PyGILState_Ensure();
-    for (int i = 0; i < driver->plugin_count; i++)
+    // Note: No need for GIL here as stop() already handled Python operations
+    if (has_python_plugin)
     {
-        plugin_instance_t *plugin = &driver->plugins[i];
-        if (plugin->python_plugin)
+        gstate = PyGILState_Ensure();
+        for (int i = 0; i < driver->plugin_count; i++)
         {
-            python_plugin_cleanup(plugin);
+            plugin_instance_t *plugin = &driver->plugins[i];
+            if (plugin->python_plugin)
+            {
+                python_plugin_cleanup(plugin);
+            }
         }
+        PyGILState_Release(gstate);
     }
-    PyGILState_Release(gstate);
 
     // CRITICAL: Reload configuration from plugins.conf file
     printf("[PLUGIN]: Reloading plugin configuration...\n");
@@ -503,9 +558,13 @@ void plugin_driver_destroy(plugin_driver_t *driver)
         return;
     }
 
+    PyGILState_STATE local_gstate;
+    bool gil_acquired = false;
+    
     if (has_python_plugin)
     {
-        gstate = PyGILState_Ensure();
+        local_gstate = PyGILState_Ensure();
+        gil_acquired = true;
     }
 
     plugin_driver_stop(driver);
@@ -513,11 +572,6 @@ void plugin_driver_destroy(plugin_driver_t *driver)
     for (int i = 0; i < driver->plugin_count; i++)
     {
         plugin_instance_t *plugin = &driver->plugins[i];
-        if (plugin->manager)
-        {
-            plugin_manager_destroy(plugin->manager);
-            plugin->manager = NULL;
-        }
         if (plugin->python_plugin)
         {
             python_plugin_cleanup(plugin);
@@ -543,9 +597,9 @@ void plugin_driver_destroy(plugin_driver_t *driver)
         }
     }
 
-    if (has_python_plugin)
+    if (gil_acquired)
     {
-        PyGILState_Release(gstate);
+        PyGILState_Release(local_gstate);
         PyEval_RestoreThread(main_tstate);
         Py_FinalizeEx();
     }
