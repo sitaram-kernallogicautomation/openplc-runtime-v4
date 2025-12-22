@@ -683,7 +683,7 @@ void plugin_driver_destroy(plugin_driver_t *driver);
     }
     ```
 
-3.  **Memory Management (Python):**
+4.  **Memory Management (Python):**
     *   Python's garbage collector handles memory. However, explicitly close files, sockets, or release other external resources in `cleanup()`.
 
 ## Dependencies
