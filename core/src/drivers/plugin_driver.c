@@ -53,10 +53,12 @@ plugin_driver_t *plugin_driver_create(void)
         return NULL;
     }
 
+#if !defined(__CYGWIN__) && !defined(__MSYS__)
     // Initialize mutex with priority inheritance to prevent priority inversion
     // This ensures that when a lower-priority plugin thread holds the mutex,
     // it temporarily inherits the priority of any higher-priority thread
     // (like the PLC scan cycle thread) waiting for the mutex.
+    // Note: Priority inheritance is not available on MSYS2/Cygwin
     pthread_mutexattr_t mutex_attr;
     if (pthread_mutexattr_init(&mutex_attr) != 0)
     {
@@ -79,6 +81,14 @@ plugin_driver_t *plugin_driver_create(void)
     }
 
     pthread_mutexattr_destroy(&mutex_attr);
+#else
+    // On MSYS2/Cygwin, use a regular mutex without priority inheritance
+    if (pthread_mutex_init(&driver->buffer_mutex, NULL) != 0)
+    {
+        free(driver);
+        return NULL;
+    }
+#endif
 
     return driver;
 }
