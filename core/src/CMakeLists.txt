@@ -19,6 +19,14 @@ add_compile_options(-Wall -Werror  -Wextra -fstack-protector-strong
     -D_FORTIFY_SOURCE=2 -O2 -Wformat
     -Werror=format-security -fPIC -fPIE)
 
+# On MSYS2/Cygwin, disable treating warnings as errors due to Python header conflicts
+# The _POSIX_C_SOURCE redefinition warning is caused by Python headers vs system headers
+# Detection: WIN32 AND UNIX is true on MSYS2/Cygwin but not on native Windows or Linux
+# The -Wno-error must come AFTER -Werror to override it
+if(WIN32 AND UNIX)
+    add_compile_options(-Wno-error)
+endif()
+
 # Step 3: Build the executable and link against the shared library
 add_executable(plc_main
     ${CMAKE_SOURCE_DIR}/core/src/plc_app/plc_main.c
