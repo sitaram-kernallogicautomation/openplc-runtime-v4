@@ -169,7 +169,6 @@ def get_default_config() -> OpcuaConfig:
         "users": [],
         "address_space": {
             "namespace_uri": "urn:openplc:opcua",
-            "namespace_index": 2,
             "variables": [],
             "structures": [],
             "arrays": []

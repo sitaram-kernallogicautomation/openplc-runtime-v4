@@ -291,7 +291,6 @@ class SimpleVariable:
 class AddressSpace:
     """Address space configuration."""
     namespace_uri: str
-    namespace_index: int
     variables: List[SimpleVariable]
     structures: List[StructVariable]
     arrays: List[ArrayVariable]
@@ -301,7 +300,6 @@ class AddressSpace:
         """Creates an AddressSpace instance from a dictionary."""
         try:
             namespace_uri = data["namespace_uri"]
-            namespace_index = data["namespace_index"]
             variables_data = data.get("variables", [])
             structures_data = data.get("structures", [])
             arrays_data = data.get("arrays", [])
@@ -314,7 +312,6 @@ class AddressSpace:
 
         return cls(
             namespace_uri=namespace_uri,
-            namespace_index=namespace_index,
             variables=variables,
             structures=structures,
             arrays=arrays
