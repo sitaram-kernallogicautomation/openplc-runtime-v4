@@ -74,7 +74,7 @@ class ModbusSlaveDevice(threading.Thread):
         self.logger = plugin_logger
         self._stop_event = threading.Event()
         self.connection_manager = ModbusConnectionManager(
-            device_config.host, device_config.port, device_config.timeout_ms
+            device_config.host, device_config.port, device_config.timeout_ms, device_config.slave_id
         )
         self.name = f"ModbusSlave-{device_config.name}-{device_config.host}:{device_config.port}"
 
@@ -149,22 +149,23 @@ class ModbusSlaveDevice(threading.Thread):
                             count = point.length  # 1:1 mapping for boolean operations
 
                         # Perform Modbus read based on function code
-                        # Note: pymodbus 3.x requires count as keyword argument
+                        # Note: pymodbus 3.10+ uses device_id parameter (formerly slave)
+                        # device_id is used for Modbus TCP gateways that forward to RS485 devices
                         if point.fc == 1:  # Read Coils
                             response = self.connection_manager.client.read_coils(
-                                address, count=count
+                                address, count=count, device_id=self.connection_manager.slave_id
                             )
                         elif point.fc == 2:  # Read Discrete Inputs
                             response = self.connection_manager.client.read_discrete_inputs(
-                                address, count=count
+                                address, count=count, device_id=self.connection_manager.slave_id
                             )
                         elif point.fc == 3:  # Read Holding Registers
                             response = self.connection_manager.client.read_holding_registers(
-                                address, count=count
+                                address, count=count, device_id=self.connection_manager.slave_id
                             )
                         elif point.fc == 4:  # Read Input Registers
                             response = self.connection_manager.client.read_input_registers(
-                                address, count=count
+                                address, count=count, device_id=self.connection_manager.slave_id
                             )
                         else:
                             self.logger.warn(f"[{self.name}] Unsupported read FC: {point.fc}")
@@ -327,10 +328,12 @@ class ModbusSlaveDevice(threading.Thread):
                             continue
 
                         # Perform Modbus write operation
+                        # Note: pymodbus 3.10+ uses device_id parameter (formerly slave)
+                        # device_id is used for Modbus TCP gateways that forward to RS485 devices
                         if point.fc == 5:  # Write Single Coil
                             if len(values_to_write) > 0:
                                 response = self.connection_manager.client.write_coil(
-                                    address, values_to_write[0]
+                                    address, values_to_write[0], device_id=self.connection_manager.slave_id
                                 )
                             else:
                                 self.logger.error(
@@ -341,7 +344,7 @@ class ModbusSlaveDevice(threading.Thread):
                         elif point.fc == 6:  # Write Single Register
                             if len(values_to_write) > 0:
                                 response = self.connection_manager.client.write_register(
-                                    address, values_to_write[0]
+                                    address, values_to_write[0], device_id=self.connection_manager.slave_id
                                 )
                             else:
                                 self.logger.error(
@@ -351,11 +354,11 @@ class ModbusSlaveDevice(threading.Thread):
                                 continue
                         elif point.fc == 15:  # Write Multiple Coils
                             response = self.connection_manager.client.write_coils(
-                                address, values_to_write
+                                address, values_to_write, device_id=self.connection_manager.slave_id
                             )
                         elif point.fc == 16:  # Write Multiple Registers
                             response = self.connection_manager.client.write_registers(
-                                address, values_to_write
+                                address, values_to_write, device_id=self.connection_manager.slave_id
                             )
                         else:
                             self.logger.warn(f"[{self.name}] Unsupported write FC: {point.fc}")
