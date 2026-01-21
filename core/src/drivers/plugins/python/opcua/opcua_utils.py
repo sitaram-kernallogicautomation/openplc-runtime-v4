@@ -35,10 +35,10 @@ def map_plc_to_opcua_type(plc_type: str) -> ua.VariantType:
         "FLOAT": ua.VariantType.Float,
         "REAL": ua.VariantType.Float,  # IEC 61131-3 REAL = 32-bit float
         "STRING": ua.VariantType.String,
-        # TIME-related types - represented as Int64 (milliseconds for duration types)
+        # TIME-related types
         "TIME": ua.VariantType.Int64,  # Duration in milliseconds
-        "TOD": ua.VariantType.Int64,  # Time of day in milliseconds since midnight
-        "DATE": ua.VariantType.DateTime,  # Date as OPC-UA DateTime
+        "TOD": ua.VariantType.DateTime,  # Time of day as DateTime (current date + time)
+        "DATE": ua.VariantType.DateTime,  # Date as DateTime (date only, time set to 00:00:00)
         "DT": ua.VariantType.DateTime,  # Date and Time as OPC-UA DateTime
     }
     mapped_type = type_mapping.get(plc_type.upper(), ua.VariantType.Variant)
@@ -130,29 +130,67 @@ def convert_value_for_opcua(datatype: str, value: Any) -> Any:
             return 0
 
         elif datatype.upper() == "TOD":
-            # TOD (Time of Day) - milliseconds since midnight
+            # TOD (Time of Day) - use current date + time from timespec
+            # IEC_TIMESPEC stores seconds since midnight for TOD
+            from datetime import datetime, timezone
+
             if isinstance(value, tuple) and len(value) == 2:
                 tv_sec, tv_nsec = value
-                return timespec_to_milliseconds(tv_sec, tv_nsec)
-            elif isinstance(value, int):
-                return value
-            return 0
+                # tv_sec contains seconds since midnight
+                hours = tv_sec // 3600
+                minutes = (tv_sec % 3600) // 60
+                seconds = tv_sec % 60
+                microseconds = tv_nsec // 1000
 
-        elif datatype.upper() in ["DATE", "DT"]:
-            # DATE and DT map to OPC-UA DateTime
+                # Use current date (today) + time from timespec
+                today = datetime.now(timezone.utc).date()
+                try:
+                    dt = datetime(
+                        today.year, today.month, today.day,
+                        hours, minutes, seconds, microseconds,
+                        tzinfo=timezone.utc
+                    )
+                    return dt
+                except (ValueError, OverflowError):
+                    # Invalid time, return today at midnight
+                    return datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+            elif isinstance(value, datetime):
+                return value
+            # Default: today at midnight
+            today = datetime.now(timezone.utc).date()
+            return datetime(today.year, today.month, today.day, tzinfo=timezone.utc)
+
+        elif datatype.upper() == "DATE":
+            # DATE - use date from timespec, set time to 00:00:00
             # IEC_TIMESPEC stores seconds since epoch (1970-01-01)
             from datetime import datetime, timezone
 
             if isinstance(value, tuple) and len(value) == 2:
                 tv_sec, tv_nsec = value
-                # Convert to datetime object
+                try:
+                    # Convert to datetime and extract date only
+                    dt = datetime.fromtimestamp(tv_sec, tz=timezone.utc)
+                    # Set time to 00:00:00 (ignore time portion)
+                    dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                    return dt
+                except (OSError, OverflowError, ValueError):
+                    return datetime(1970, 1, 1, tzinfo=timezone.utc)
+            elif isinstance(value, datetime):
+                # Zero out time portion
+                return value.replace(hour=0, minute=0, second=0, microsecond=0)
+            return datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+        elif datatype.upper() == "DT":
+            # DT (Date and Time) - full DateTime conversion
+            from datetime import datetime, timezone
+
+            if isinstance(value, tuple) and len(value) == 2:
+                tv_sec, tv_nsec = value
                 try:
                     dt = datetime.fromtimestamp(tv_sec, tz=timezone.utc)
-                    # Add microseconds (nsec / 1000)
                     dt = dt.replace(microsecond=tv_nsec // 1000)
                     return dt
                 except (OSError, OverflowError, ValueError):
-                    # Invalid timestamp, return epoch
                     return datetime(1970, 1, 1, tzinfo=timezone.utc)
             elif isinstance(value, datetime):
                 return value
@@ -227,21 +265,44 @@ def convert_value_for_plc(datatype: str, value: Any) -> Any:
             return milliseconds_to_timespec(ms)
 
         elif datatype.upper() == "TOD":
-            # TOD (Time of Day) - convert milliseconds to timespec
-            ms = int(value)
-            return milliseconds_to_timespec(ms)
-
-        elif datatype.upper() in ["DATE", "DT"]:
-            # Convert OPC-UA DateTime to IEC_TIMESPEC tuple
+            # TOD (Time of Day) - extract time portion only (seconds since midnight)
             from datetime import datetime, timezone
 
             if isinstance(value, datetime):
-                # Convert datetime to seconds since epoch
+                # Calculate seconds since midnight
+                tv_sec = value.hour * 3600 + value.minute * 60 + value.second
+                tv_nsec = value.microsecond * 1000
+                return (tv_sec, tv_nsec)
+            elif isinstance(value, (int, float)):
+                # Assume it's seconds since midnight
+                return (int(value), 0)
+            return (0, 0)
+
+        elif datatype.upper() == "DATE":
+            # DATE - extract date only, set time to 00:00:00
+            from datetime import datetime, timezone
+
+            if isinstance(value, datetime):
+                # Create datetime at midnight for the date, then get timestamp
+                dt_midnight = value.replace(hour=0, minute=0, second=0, microsecond=0)
+                tv_sec = int(dt_midnight.timestamp())
+                return (tv_sec, 0)
+            elif isinstance(value, (int, float)):
+                # Assume it's a timestamp, zero out time portion
+                dt = datetime.fromtimestamp(int(value), tz=timezone.utc)
+                dt_midnight = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+                return (int(dt_midnight.timestamp()), 0)
+            return (0, 0)
+
+        elif datatype.upper() == "DT":
+            # DT (Date and Time) - full DateTime conversion
+            from datetime import datetime, timezone
+
+            if isinstance(value, datetime):
                 tv_sec = int(value.timestamp())
                 tv_nsec = value.microsecond * 1000
                 return (tv_sec, tv_nsec)
             elif isinstance(value, (int, float)):
-                # Assume it's a timestamp
                 return (int(value), 0)
             return (0, 0)
 

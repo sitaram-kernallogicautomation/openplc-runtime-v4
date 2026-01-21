@@ -91,9 +91,9 @@ class TestMapPlcToOpcuaType:
         assert map_plc_to_opcua_type("Time") == ua.VariantType.Int64
 
     def test_tod_mapping(self):
-        """TOD (Time of Day) should map to Int64 (milliseconds since midnight)."""
-        assert map_plc_to_opcua_type("TOD") == ua.VariantType.Int64
-        assert map_plc_to_opcua_type("tod") == ua.VariantType.Int64
+        """TOD (Time of Day) should map to DateTime (current date + time)."""
+        assert map_plc_to_opcua_type("TOD") == ua.VariantType.DateTime
+        assert map_plc_to_opcua_type("tod") == ua.VariantType.DateTime
 
     def test_date_mapping(self):
         """DATE should map to DateTime."""
@@ -241,11 +241,25 @@ class TestConvertValueForOpcua:
         assert convert_value_for_opcua("TIME", 0) == 0
 
     def test_tod_from_tuple(self):
-        """TOD from tuple should convert to milliseconds since midnight."""
-        # 1 hour = 3600 seconds = 3600000 ms
-        assert convert_value_for_opcua("TOD", (3600, 0)) == 3600000
-        # 1 hour + 500ms
-        assert convert_value_for_opcua("TOD", (3600, 500_000_000)) == 3600500
+        """TOD from tuple should convert to DateTime with current date + time."""
+        from datetime import datetime, timezone
+
+        # 1 hour = 3600 seconds since midnight -> 01:00:00
+        result = convert_value_for_opcua("TOD", (3600, 0))
+        assert isinstance(result, datetime)
+        assert result.hour == 1
+        assert result.minute == 0
+        assert result.second == 0
+        # Date should be today
+        today = datetime.now(timezone.utc).date()
+        assert result.date() == today
+
+        # 1 hour + 30 minutes + 45 seconds = 5445 seconds
+        result2 = convert_value_for_opcua("TOD", (5445, 500_000_000))
+        assert result2.hour == 1
+        assert result2.minute == 30
+        assert result2.second == 45
+        assert result2.microsecond == 500000  # 500ms = 500000 microseconds
 
     def test_time_large_values(self):
         """TIME should handle large values (hours/days)."""
@@ -354,11 +368,22 @@ class TestConvertValueForPlc:
         assert convert_value_for_plc("TIME", 10250) == (10, 250_000_000)
 
     def test_tod_to_tuple(self):
-        """TOD milliseconds should convert to (tv_sec, tv_nsec) tuple."""
-        # 3600000 ms = 1 hour
-        assert convert_value_for_plc("TOD", 3600000) == (3600, 0)
-        # 3600500 ms = 1 hour + 500ms
-        assert convert_value_for_plc("TOD", 3600500) == (3600, 500_000_000)
+        """TOD DateTime should convert to (tv_sec, tv_nsec) tuple (seconds since midnight)."""
+        from datetime import datetime, timezone
+
+        # 01:00:00 = 3600 seconds since midnight
+        dt1 = datetime(2025, 6, 15, 1, 0, 0, tzinfo=timezone.utc)
+        assert convert_value_for_plc("TOD", dt1) == (3600, 0)
+
+        # 01:30:45.500000 = 5445 seconds + 500000 microseconds
+        dt2 = datetime(2025, 6, 15, 1, 30, 45, 500000, tzinfo=timezone.utc)
+        result = convert_value_for_plc("TOD", dt2)
+        assert result[0] == 5445  # seconds since midnight
+        assert result[1] == 500_000_000  # nanoseconds
+
+        # Midnight = 0 seconds
+        dt3 = datetime(2025, 6, 15, 0, 0, 0, tzinfo=timezone.utc)
+        assert convert_value_for_plc("TOD", dt3) == (0, 0)
 
     def test_time_large_values_to_tuple(self):
         """TIME should handle large milliseconds values."""
