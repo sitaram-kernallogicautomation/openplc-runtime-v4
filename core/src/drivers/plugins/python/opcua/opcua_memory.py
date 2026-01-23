@@ -31,6 +31,30 @@ TIMESPEC_SIZE = 8  # sizeof(IEC_TIMESPEC) = 2 * sizeof(int32_t) = 8 bytes
 TIME_DATATYPES = frozenset(["TIME", "DATE", "TOD", "DT"])
 
 
+def _validate_memory_address(address: int, size: int = 1) -> None:
+    """
+    Validate a memory address before access.
+
+    Args:
+        address: Memory address to validate
+        size: Size of data to be accessed (for bounds context)
+
+    Raises:
+        ValueError: If address is invalid (NULL, negative, or suspiciously small)
+    """
+    if address is None:
+        raise ValueError("Memory address is None")
+    if not isinstance(address, int):
+        raise ValueError(f"Memory address must be an integer, got {type(address).__name__}")
+    if address == 0:
+        raise ValueError("Memory address is NULL (0)")
+    if address < 0:
+        raise ValueError(f"Memory address is negative: {address}")
+    # Addresses below 4096 are typically reserved/unmapped on most systems
+    if address < 4096:
+        raise ValueError(f"Memory address {address} is in reserved memory region (< 4096)")
+
+
 class IEC_TIMESPEC(ctypes.Structure):
     """
     ctypes structure matching IEC_TIMESPEC from iec_types.h.
@@ -81,8 +105,11 @@ def read_memory_direct(address: int, size: int, datatype: str = None) -> Any:
 
     Raises:
         RuntimeError: If memory access fails
-        ValueError: If size is not supported
+        ValueError: If size is not supported or address is invalid
     """
+    # Validate address before any memory access
+    _validate_memory_address(address, size)
+
     try:
         if size == 1:
             ptr = ctypes.cast(address, ctypes.POINTER(ctypes.c_uint8))
@@ -117,7 +144,13 @@ def read_string_direct(address: int) -> str:
 
     Returns:
         Python string decoded from the IEC_STRING
+
+    Raises:
+        ValueError: If address is invalid
+        RuntimeError: If memory access fails
     """
+    _validate_memory_address(address, STRING_TOTAL_SIZE)
+
     try:
         ptr = ctypes.cast(address, ctypes.POINTER(IEC_STRING))
         iec_string = ptr.contents
@@ -146,7 +179,13 @@ def write_string_direct(address: int, value: str) -> bool:
 
     Returns:
         True if successful
+
+    Raises:
+        ValueError: If address is invalid
+        RuntimeError: If memory access fails
     """
+    _validate_memory_address(address, STRING_TOTAL_SIZE)
+
     try:
         ptr = ctypes.cast(address, ctypes.POINTER(IEC_STRING))
         iec_string = ptr.contents
@@ -181,7 +220,13 @@ def read_timespec_direct(address: int) -> tuple[int, int]:
 
     Returns:
         Tuple of (tv_sec, tv_nsec)
+
+    Raises:
+        ValueError: If address is invalid
+        RuntimeError: If memory access fails
     """
+    _validate_memory_address(address, TIMESPEC_SIZE)
+
     try:
         ptr = ctypes.cast(address, ctypes.POINTER(IEC_TIMESPEC))
         timespec = ptr.contents
@@ -201,7 +246,13 @@ def write_timespec_direct(address: int, tv_sec: int, tv_nsec: int) -> bool:
 
     Returns:
         True if successful
+
+    Raises:
+        ValueError: If address is invalid
+        RuntimeError: If memory access fails
     """
+    _validate_memory_address(address, TIMESPEC_SIZE)
+
     try:
         ptr = ctypes.cast(address, ctypes.POINTER(IEC_TIMESPEC))
         ptr.contents.tv_sec = ctypes.c_int32(tv_sec).value

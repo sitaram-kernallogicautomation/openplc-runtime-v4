@@ -160,7 +160,7 @@ class PermissionCallbackHandler:
             # Check user's read permission
             if user and hasattr(user, 'openplc_role'):
                 user_role = self._normalize_role(user.openplc_role)
-                username = getattr(user, 'username', 'unknown')
+                username = getattr(user, 'name', 'unknown')
                 role_permission = getattr(permissions, user_role, "")
 
                 if "r" not in str(role_permission):
@@ -222,7 +222,7 @@ class PermissionCallbackHandler:
             # Check user's write permission
             if user and hasattr(user, 'openplc_role'):
                 user_role = self._normalize_role(user.openplc_role)
-                username = getattr(user, 'username', 'unknown')
+                username = getattr(user, 'name', 'unknown')
 
                 if permissions:
                     role_permission = getattr(permissions, user_role, "")
@@ -235,10 +235,11 @@ class PermissionCallbackHandler:
                         log_info(f"ALLOW write for user {username} "
                                  f"(role: {user_role}) on node {simple_node_id}: {value}")
                 else:
-                    # No permissions configured - allow by default
-                    log_info(f"ALLOW write for user {username} "
+                    # No permissions configured - deny by default (fail-closed)
+                    log_warn(f"DENY write for user {username} "
                              f"(role: {user_role}) on node {simple_node_id}: {value} "
                              f"(no permissions configured)")
+                    raise ua.UaError("Access denied: no permissions configured for this node")
             else:
                 # Anonymous external client user
                 if permissions:
@@ -246,8 +247,12 @@ class PermissionCallbackHandler:
                     if "w" not in str(viewer_perm):
                         log_warn(f"DENY write for anonymous client on node {simple_node_id}")
                         raise ua.UaError("Access denied: anonymous write not allowed")
-
-                log_info(f"ALLOW write for anonymous client on node {simple_node_id}: {value}")
+                    log_info(f"ALLOW write for anonymous client on node {simple_node_id}: {value}")
+                else:
+                    # No permissions configured - deny by default (fail-closed)
+                    log_warn(f"DENY write for anonymous client on node {simple_node_id}: {value} "
+                             f"(no permissions configured)")
+                    raise ua.UaError("Access denied: no permissions configured for this node")
 
     def _resolve_node_id(self, node_id: Any) -> Optional[str]:
         """
