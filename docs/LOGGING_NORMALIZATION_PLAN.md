@@ -329,5 +329,9 @@ Apply to all 4 fallback print statements (info, warn, error, debug).
 
 - [x] Phase 1: Python Logging System (COMPLETED)
 - [x] Phase 2: C printf/fprintf Conversions (COMPLETED)
-- [ ] Phase 3: Python print() Conversions
-- [ ] Phase 4: Plugin Fallback Updates
+- [x] Phase 3: Python print() Conversions (COMPLETED - webserver files)
+- [ ] Phase 4: Plugin Fallback Updates (includes Python plugin print conversions)
+
+### Note on Python Plugin Files
+Python plugin files (e.g., `modbus_master_memory.py`) run in the plugin context and
+need a logging solution similar to `opcua_logging.py`. These are deferred to Phase 4.
