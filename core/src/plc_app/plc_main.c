@@ -44,9 +44,15 @@ int main(int argc, char *argv[])
         {
             print_logs = true;
         }
-        if (strcmp(argv[i], "--print-debug") == 0)
+        else if (strcmp(argv[i], "--print-debug") == 0)
         {
             print_debug = true;
+        }
+
+        // Early exit if both flags are found
+        if (print_logs && print_debug)
+        {
+            break;
         }
     }
 

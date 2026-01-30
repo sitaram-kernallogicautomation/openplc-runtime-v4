@@ -34,24 +34,22 @@ def get_logger(name="runtime", use_buffer: bool = False):
 
     effective_level = _get_effective_level()
 
-    # Always ensure a StreamHandler exists
-    if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
+    # Ensure a StreamHandler exists
+    if not any(
+        isinstance(h, logging.StreamHandler) and not isinstance(h, BufferHandler)
+        for h in logger.handlers
+    ):
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(JsonFormatter())
-        stream_handler.setLevel(effective_level)
         logger.addHandler(stream_handler)
-    else:
-        # Update existing StreamHandler level
-        for h in logger.handlers:
-            if isinstance(h, logging.StreamHandler) and not isinstance(h, BufferHandler):
-                h.setLevel(effective_level)
 
-    if use_buffer:
-        if not any(isinstance(h, BufferHandler) for h in logger.handlers):
-            shared_buffer_handler.setLevel(effective_level)
-            logger.addHandler(shared_buffer_handler)
-        else:
-            # Update existing BufferHandler level
-            shared_buffer_handler.setLevel(effective_level)
+    # Ensure BufferHandler exists if requested
+    if use_buffer and not any(isinstance(h, BufferHandler) for h in logger.handlers):
+        logger.addHandler(shared_buffer_handler)
+
+    # Always update all handler levels to reflect current config
+    for h in logger.handlers:
+        if isinstance(h, logging.StreamHandler):
+            h.setLevel(effective_level)
 
     return logger, shared_buffer_handler
