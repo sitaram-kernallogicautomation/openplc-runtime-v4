@@ -2,7 +2,6 @@
 import logging
 import sys
 
-from .logger import get_logger
 from .parser import LogParser
 from .bufferhandler import BufferHandler
 from .formatter import JsonFormatter, HumanReadableFormatter
@@ -49,7 +48,6 @@ def get_logger(name="runtime", use_buffer: bool = False):
 
     # Always update all handler levels to reflect current config
     for h in logger.handlers:
-        if isinstance(h, logging.StreamHandler):
-            h.setLevel(effective_level)
+        h.setLevel(effective_level)
 
     return logger, shared_buffer_handler
