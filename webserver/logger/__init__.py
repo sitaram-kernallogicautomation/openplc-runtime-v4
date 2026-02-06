@@ -2,7 +2,6 @@
 import logging
 import sys
 
-from .logger import get_logger
 from .parser import LogParser
 from .bufferhandler import BufferHandler
 from .formatter import JsonFormatter, HumanReadableFormatter
