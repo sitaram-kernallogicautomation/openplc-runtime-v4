@@ -11,6 +11,17 @@ PYTHON_LOADER_SRC="core/src/plc_app/python_loader.c"
 
 FLAGS="-w -O3 -fPIC"
 
+# On Cygwin/MSYS2, the linker requires all symbols resolved at link time when
+# creating shared libraries. The PLC shared library references functions provided
+# by the plc_main executable (e.g. TCP communication blocks) that are resolved at
+# dlopen time via -rdynamic. Tell the linker to allow these unresolved symbols.
+LINK_FLAGS=""
+case "$(uname -s)" in
+    CYGWIN*|MSYS*|MINGW*)
+        LINK_FLAGS="-Wl,--unresolved-symbols=ignore-all"
+        ;;
+esac
+
 check_required_files() {
     local missing_files=()
 
@@ -62,6 +73,6 @@ gcc $FLAGS -I "core/src/plc_app" -c "$PYTHON_LOADER_SRC" -o "$BUILD_PATH/python_
 
 # Link shared library into build/
 echo "[INFO] Linking shared library..."
-g++ $FLAGS -shared -o "$BUILD_PATH/new_libplc.so" "$BUILD_PATH/Config0.o" \
+g++ $FLAGS $LINK_FLAGS -shared -o "$BUILD_PATH/new_libplc.so" "$BUILD_PATH/Config0.o" \
     "$BUILD_PATH/Res0.o" "$BUILD_PATH/debug.o" "$BUILD_PATH/glueVars.o" \
     "$BUILD_PATH/c_blocks_code.o" "$BUILD_PATH/python_loader.o" -lpthread -lrt
