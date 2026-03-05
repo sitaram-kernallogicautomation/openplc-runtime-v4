@@ -30,6 +30,20 @@ static pthread_t plc_thread_id;
 static volatile sig_atomic_t plc_crash_signal = 0;
 static volatile sig_atomic_t holding_buffer_mutex = 0;
 
+// NOTE on siglongjmp safety: siglongjmp from a hardware-raised signal is
+// well-defined when process state (heap/stack) is intact at the time of the
+// signal. For generated PLC code this is the expected case because:
+//   - SIGFPE: the faulting instruction is trapped before completing, no
+//     memory is modified, so recovery is always safe.
+//   - SIGSEGV: typically caused by out-of-bounds access into an unmapped
+//     page. The write/read is trapped by the MMU before completing, so
+//     process state is clean.
+// The theoretical risk is a SIGSEGV caused by a prior silent corruption
+// (write to a valid but wrong address) leaving heap/stack inconsistent.
+// This is extremely unlikely with generated PLC code (no heap allocation,
+// no recursion). If it does happen, the recovered process will crash again
+// shortly and Layer 3 (webserver safe mode) will catch the rapid crash
+// pattern and restart without loading the faulty program.
 static void plc_crash_handler(int sig)
 {
     // Only handle if the crash came from the PLC cycle thread
