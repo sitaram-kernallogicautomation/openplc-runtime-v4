@@ -109,31 +109,32 @@ int main(int argc, char *argv[])
         log_error("Failed to set PLC state to RUNNING");
     }
 
-    // Initialize plugin driver system
+    // Initialize plugin driver system.
+    // All plugins are loaded and initialized at boot (so features like EtherCAT
+    // scanning work from the editor), but none are started yet. Enabled plugins
+    // are started later in plc_cycle_thread() after image tables are populated.
     plugin_driver = plugin_driver_create();
     if (plugin_driver)
     {
         log_info("[PLUGIN]: Plugin driver system created");
-        // Load plugin configuration
         if (plugin_driver_load_config(plugin_driver, "./plugins.conf") == 0)
         {
-            // Start plugins
             plugin_driver_init(plugin_driver);
-            plugin_driver_start(plugin_driver);
-            log_info("[PLUGIN]: Plugin driver system initialized");
+            log_info("[PLUGIN]: All plugins initialized (not started)");
         }
         else
         {
             log_error("[PLUGIN]: Failed to load plugin configuration");
-            // Release the Python GIL if Python was initialized during plugin loading.
-            // This prevents a deadlock where the main thread holds the GIL forever
-            // while sleeping, blocking other threads (like the unix socket thread)
-            // from using Python when handling commands like START.
-            if (Py_IsInitialized())
-            {
-                PyEval_SaveThread();
-                log_info("[PLUGIN]: Released Python GIL after failed plugin load");
-            }
+        }
+
+        // Release the Python GIL if Python was initialized during plugin loading.
+        // This prevents a deadlock where the main thread holds the GIL forever
+        // while sleeping, blocking other threads (like the unix socket thread)
+        // from using Python when handling commands like START.
+        if (Py_IsInitialized())
+        {
+            PyEval_SaveThread();
+            log_info("[PLUGIN]: Released Python GIL");
         }
     }
 

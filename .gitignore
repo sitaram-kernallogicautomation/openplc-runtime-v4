@@ -3,6 +3,9 @@
 /core/generated/
 /memory-bank
 
+# Runtime-mutable plugin config (plugins_default.conf is the tracked canonical default)
+plugins.conf
+
 .vscode/
 #.*/
 /venvs/
