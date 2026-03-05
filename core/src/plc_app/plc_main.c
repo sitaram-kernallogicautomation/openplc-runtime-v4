@@ -97,22 +97,10 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    // Start PLC (skip in safe mode to allow program upload without loading the
-    // faulty program that may have caused repeated crashes)
-    if (safe_mode)
-    {
-        log_info("Runtime started in SAFE MODE - PLC program will not be loaded");
-        log_info("Upload a corrected program to recover");
-    }
-    else if (plc_set_state(PLC_STATE_RUNNING) != true)
-    {
-        log_error("Failed to set PLC state to RUNNING");
-    }
-
-    // Initialize plugin driver system.
-    // All plugins are loaded and initialized at boot (so features like EtherCAT
-    // scanning work from the editor), but none are started yet. Enabled plugins
-    // are started later in plc_cycle_thread() after image tables are populated.
+    // Initialize plugin driver system BEFORE loading the PLC program.
+    // plc_set_state(RUNNING) triggers load_plc_program() which uses the plugin
+    // driver to update config and re-init plugins, and plc_cycle_thread() calls
+    // plugin_driver_start() after image tables are populated.
     plugin_driver = plugin_driver_create();
     if (plugin_driver)
     {
@@ -136,6 +124,18 @@ int main(int argc, char *argv[])
             PyEval_SaveThread();
             log_info("[PLUGIN]: Released Python GIL");
         }
+    }
+
+    // Start PLC (skip in safe mode to allow program upload without loading the
+    // faulty program that may have caused repeated crashes)
+    if (safe_mode)
+    {
+        log_info("Runtime started in SAFE MODE - PLC program will not be loaded");
+        log_info("Upload a corrected program to recover");
+    }
+    else if (plc_set_state(PLC_STATE_RUNNING) != true)
+    {
+        log_error("Failed to set PLC state to RUNNING");
     }
 
     while (keep_running)
