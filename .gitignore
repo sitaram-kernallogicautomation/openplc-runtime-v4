@@ -24,6 +24,10 @@ __pycache__/
 *.log
 *.env
 *.pem
+# Public key for Windows runtime license verification (not secret)
+!webserver/keys/license_public.pem
+# Customer license files (generated per machine)
+openplc.license
 *.db
 *.socket
 *.installed

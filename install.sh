@@ -508,10 +508,17 @@ fi
 # Make scripts executable
 chmod +x "$OPENPLC_DIR/install.sh" 2>/dev/null || true
 chmod +x "$OPENPLC_DIR/scripts/"* 2>/dev/null || true
+chmod +x "$OPENPLC_DIR/windows/"*.sh 2>/dev/null || true
 chmod +x "$OPENPLC_DIR/start_openplc.sh" 2>/dev/null || true
 
 install_dependencies
-python3 -m venv "$VENV_DIR"
+# MSYS2: use system-site-packages so pacman python-cryptography is visible (pip cannot
+# reliably build Rust-based wheels in this environment).
+if is_msys2; then
+    python3 -m venv --system-site-packages "$VENV_DIR"
+else
+    python3 -m venv "$VENV_DIR"
+fi
 "$VENV_DIR/bin/python3" -m pip install --upgrade pip setuptools wheel
 "$VENV_DIR/bin/python3" -m pip install -r "$OPENPLC_DIR/requirements.txt"
 "$VENV_DIR/bin/python3" -m pip install -e .

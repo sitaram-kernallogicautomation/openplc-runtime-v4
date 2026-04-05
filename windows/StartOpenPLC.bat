@@ -45,6 +45,10 @@ if not exist "%MSYS2_ROOT%\run\runtime" (
     mkdir "%MSYS2_ROOT%\run\runtime" 2>nul
 )
 
+REM Official launcher must not honor a user/system OPENPLC_SKIP_LICENSE_CHECK left
+REM in the environment (devs can run python directly with that var if needed).
+set "OPENPLC_SKIP_LICENSE_CHECK="
+
 REM Start the OpenPLC Runtime
 "%MSYS2_ROOT%\usr\bin\bash.exe" -lc "cd '%OPENPLC_MSYS_PATH%' && ./venvs/runtime/bin/python3 -m webserver.app"
 

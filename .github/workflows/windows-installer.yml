@@ -115,6 +115,12 @@ jobs:
           $payloadSize = (Get-ChildItem -Path "windows\payload" -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
           Write-Host "Payload size: $([math]::Round($payloadSize, 2)) MB"
 
+      - name: Mask webserver Python sources in payload
+        shell: msys2 {0}
+        run: |
+          set -e
+          ./windows/mask_webserver_sources.sh windows/payload/openplc-runtime
+
       - name: Install Inno Setup
         shell: pwsh
         run: |

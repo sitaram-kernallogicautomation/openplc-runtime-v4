@@ -55,7 +55,11 @@ To build the installer manually on a Windows machine:
        msys64/     <- Copy your MSYS2 installation here
        openplc-runtime/  <- Copy the runtime files here
    ```
-6. Run Inno Setup compiler:
+6. Optional: strip plain `webserver/*.py` from the payload (see **Masking Python source**):
+   ```bash
+   ./windows/mask_webserver_sources.sh windows/payload/openplc-runtime
+   ```
+7. Run Inno Setup compiler:
    ```
    "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\setup.iss
    ```
@@ -79,6 +83,75 @@ After installation, users can:
 2. Or run `StartOpenPLC.bat` directly
 
 The runtime will start and be accessible at https://localhost:8443
+
+## Licensing (fork builds)
+
+On Windows (including the MSYS2-backed installer), the runtime **requires a valid license file** before the web server or PLC manager starts. Linux and Docker builds are not gated.
+
+### What gets tied to the machine
+
+The license contains a SHA-256 fingerprint derived from the Windows registry **MachineGuid** and the computer name (`platform.node()`). The customer generates a fingerprint on the target PC; you issue a signed JWT that embeds that fingerprint.
+
+### Files and layout
+
+- **License file (customer):** `openplc.license` in the OpenPLC repository root next to `webserver/` (for the installed layout: `{install}\openplc-runtime\openplc.license`). Override with environment variable `OPENPLC_LICENSE_FILE` if needed.
+- **Public key (shipped in the installer):** `webserver/keys/license_public.pem`. Override with `OPENPLC_LICENSE_PUBLIC_KEY`.
+- **Private key (vendor only, never ship):** keep offline; use it only with `scripts/issue_windows_license.py`.
+
+### Workflow
+
+1. On the target PC (MSYS2 shell or any suitable Python on that Windows system), run:
+   ```bash
+   ./venvs/runtime/bin/python3 scripts/print_windows_fingerprint.py
+   ```
+   Or from a repo checkout without venv, after `pip install -e .` and dependencies.
+2. Sign a license with your private key:
+   ```bash
+   ./venvs/runtime/bin/python3 scripts/issue_windows_license.py \
+     --private-key /secure/path/vendor_private.pem \
+     --fingerprint <value from step 1> \
+     --days 365 \
+     --output openplc.license
+   ```
+3. Place `openplc.license` in the runtime root (`openplc-runtime\` next to `webserver\`, `core\`, etc.).
+
+### Optional expiry
+
+Pass `--days N` when issuing to set JWT `exp`. Omit `--days` (or use `0`) for no expiry field in the token.
+
+### Development bypass
+
+Set `OPENPLC_SKIP_LICENSE_CHECK=1` in the environment to start the runtime on Windows without a license (for internal development only). **Note:** `StartOpenPLC.bat` clears this variable before starting Python so a stray machine-wide setting cannot disable licensing when customers use the shipped shortcut; for local dev, run `python3 -m webserver.app` from an MSYS shell yourself with the variable set.
+
+### Replacing keys in your fork
+
+Generate an RSA key pair (2048-bit or stronger), install the **public** PEM as `webserver/keys/license_public.pem` in your tree (update `.gitignore` if you use a different path), and use the **private** PEM only with `issue_windows_license.py`. The file committed upstream is a placeholder; you must use your own key pair for customers.
+
+## Masking Python source in the installed app
+
+The installer places files under `%LOCALAPPDATA%\OpenPLC Runtime\openplc-runtime\`, which would normally expose plain `webserver/*.py` files.
+
+**What we do:** the Windows installer workflow runs `windows/mask_webserver_sources.sh` on the **payload copy only** (after `install.sh`, before Inno Setup). That script:
+
+1. Byte-compiles everything under `webserver/` into `__pycache__/`
+2. Deletes all `*.py` and `*.pyi` there
+3. Deletes `*.md` under `webserver/` (docs shipped with the package)
+
+The runtime still starts with `./venvs/runtime/bin/python3 -m webserver.app`; CPython loads modules from `.pyc` for the same interpreter version.
+
+**Manual builds:** after you populate `windows/payload/openplc-runtime`, run from the repository root inside MSYS2:
+
+```bash
+./windows/mask_webserver_sources.sh windows/payload/openplc-runtime
+```
+
+**Important limits (read this):**
+
+- This is **obfuscation**, not encryption. Bytecode can be **decompiled** (e.g. with public tools). It stops casual reading of source in Notepad, not a determined reverse engineer.
+- **`core/`** (C/C++ PLC core, plugins), **`scripts/*.sh`**, **`scripts/*.py`**, **`CMakeLists.txt`**, and the rest of the tree are **unchanged**. Only `webserver/` Python sources in the payload are masked. To hide more, remove or mask those paths from the payload (may break features) or move to stronger packagers below.
+- The **Python minor version** in the venv must match the one used when compiling; the payload is built in one shot, so this stays consistent.
+
+**Stronger options (vendor-owned tooling, not in-tree):** pack the web stack with **PyInstaller**, **Nuitka**, or a commercial obfuscator (**PyArmor**, etc.) so logic ships as a native binary or encrypted bytecode. That requires a separate build entry point and more testing with Flask-SocketIO and your plugin paths.
 
 ## Size Considerations
 

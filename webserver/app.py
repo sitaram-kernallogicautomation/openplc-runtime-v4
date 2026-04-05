@@ -1,13 +1,3 @@
-import sys
-
-# Parse --print-debug argument before any logger imports
-# This must happen first so LoggerConfig.print_debug is set before loggers are created
-_print_debug = "--print-debug" in sys.argv
-
-from webserver.logger.config import LoggerConfig
-
-LoggerConfig.print_debug = _print_debug
-
 import errno
 import json
 import os
@@ -32,6 +22,7 @@ from webserver.plcapp_management import (
     run_compile,
     safe_extract,
     update_plugin_configurations,
+    _shutdown_compilation_executor,
 )
 from webserver.restapi import (
     app_restapi,
@@ -41,6 +32,7 @@ from webserver.restapi import (
     restapi_bp,
 )
 from webserver.runtimemanager import RuntimeManager
+from webserver.windows_license import ensure_licensed_or_exit
 
 logger, _ = get_logger("logger", use_buffer=True)
 
@@ -53,12 +45,10 @@ runtime_manager = RuntimeManager(
     runtime_path="./build/plc_main",
     plc_socket="/run/runtime/plc_runtime.socket",
     log_socket="/run/runtime/log_runtime.socket",
-    print_debug=_print_debug,
 )
 
-runtime_manager.start()
-
 BASE_DIR: Final[Path] = Path(__file__).parent
+REPO_ROOT: Final[Path] = BASE_DIR.parent
 CERT_FILE: Final[Path] = (BASE_DIR / "certOPENPLC.pem").resolve()
 KEY_FILE: Final[Path] = (BASE_DIR / "keyOPENPLC.pem").resolve()
 HOSTNAME: Final[str] = "localhost"
@@ -141,37 +131,6 @@ def handle_ping(data: dict) -> dict:
     return {"status": response}
 
 
-def handle_list_serial_ports(data: dict) -> dict:
-    """
-    List available serial ports on the system.
-
-    Returns:
-        {
-            "ports": [
-                {"device": "/dev/ttyUSB0", "description": "USB-Serial Controller"},
-                {"device": "/dev/ttyACM0", "description": "Arduino Uno"},
-                ...
-            ]
-        }
-    """
-    try:
-        import serial.tools.list_ports
-
-        ports = serial.tools.list_ports.comports()
-        port_list = [
-            {
-                "device": port.device,
-                "description": port.description or port.device,
-            }
-            for port in ports
-        ]
-        return {"ports": port_list}
-    except ImportError:
-        return {"error": "pyserial not installed", "ports": []}
-    except Exception as e:
-        return {"error": str(e), "ports": []}
-
-
 GET_HANDLERS: dict[str, Callable[[dict], dict]] = {
     "start-plc": handle_start_plc,
     "stop-plc": handle_stop_plc,
@@ -179,7 +138,6 @@ GET_HANDLERS: dict[str, Callable[[dict], dict]] = {
     "compilation-status": handle_compilation_status,
     "status": handle_status,
     "ping": handle_ping,
-    "serial-ports": handle_list_serial_ports,
 }
 
 
@@ -238,17 +196,15 @@ def handle_upload_file(data: dict) -> dict:
         # Update plugin configurations based on extracted config files
         update_plugin_configurations(extract_dir)
 
-        # Start compilation in a separate thread
+        # Start compilation using thread pool (or direct call if disabled)
         build_state.status = BuildStatus.COMPILING
 
-        task_compile = threading.Thread(
-            target=run_compile,
-            args=(runtime_manager,),
-            kwargs={"cwd": extract_dir},
-            daemon=True,
-        )
+        # run_compile now handles thread pool internally
+        compile_future = run_compile(runtime_manager, cwd=extract_dir)
 
-        task_compile.start()
+        if compile_future is None and build_state.status == BuildStatus.COMPILING:
+            # Thread pool is disabled or task was rejected, compilation is running synchronously
+            pass
 
         return {"UploadFileFail": "", "CompilationStatus": build_state.status.name}
 
@@ -287,6 +243,9 @@ def restapi_callback_post(argument: str, data: dict) -> dict:
 
 
 def run_https():
+    ensure_licensed_or_exit(REPO_ROOT)
+    runtime_manager.start()
+
     # rest api register
     app_restapi.register_blueprint(restapi_bp, url_prefix="/api")
     register_callback_get(restapi_callback_get)
@@ -307,7 +266,7 @@ def run_https():
     # to handle EAGAIN/EWOULDBLOCK errors that cause "Resource temporarily unavailable"
     is_linux = platform.system() == "Linux"
     if not is_linux:
-        logger.info(f"Non-Linux platform detected ({platform.system()}). Patching recv socket...")
+        print(f"Non-Linux platform detected ({platform.system()}). Patching recv socket...")
         _orig_recv = ssl.SSLSocket.recv
 
         def _patched_recv(self, buflen, flags=0):
@@ -327,7 +286,9 @@ def run_https():
         # Check if certificate exists. If not, generate one
         if not os.path.exists(CERT_FILE) or not os.path.exists(KEY_FILE):
             # logger.info("Generating https certificate...")
-            logger.info("Generating https certificate...")
+            print(
+                "Generating https certificate..."
+            )  # TODO: remove this temporary print once logger is functional again
             cert_gen.generate_self_signed_cert(cert_file=CERT_FILE, key_file=KEY_FILE)
         else:
             logger.warning("Credentials already generated!")
@@ -354,8 +315,12 @@ def run_https():
         # logger.info("HTTP server stopped by KeyboardInterrupt")
         pass
     finally:
-        logger.info("Runtime manager stopped")
+        logger.info("Shutting down resources...")
+        # Shutdown compilation thread pool
+        _shutdown_compilation_executor()
+        # Stop runtime manager
         runtime_manager.stop()
+        logger.info("Shutdown complete")
 
 
 if __name__ == "__main__":

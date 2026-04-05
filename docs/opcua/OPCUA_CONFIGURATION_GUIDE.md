@@ -17,6 +17,7 @@ This document explains each field in the `opcua.json` configuration file and how
 - [Data Types Reference](#data-types-reference)
 - [Permissions Reference](#permissions-reference)
 - [Complete Example](#complete-example)
+- [Pushing opcua.json from the Editor at Upload Time](#pushing-opcuajson-from-the-editor-at-upload-time)
 
 ---
 
@@ -30,6 +31,33 @@ The `opcua.json` file configures the OPC-UA server plugin for OpenPLC Runtime. I
 - **PLC variables exposed to OPC-UA clients**
 
 The configuration is stored as a JSON array, allowing multiple OPC-UA server instances (though typically only one is used).
+
+---
+
+## Pushing opcua.json from the Editor at Upload Time
+
+The runtime does **not** expose REST API endpoints to read or write `opcua.json` directly (e.g. no `GET/PUT /api/opcua/config`). Configuration is applied at **upload/compile time** via the program ZIP.
+
+**Editor workflow:**
+
+1. **Include `opcua.json` in the project package**  
+   When building the program ZIP for upload, place the OPC UA config file at:
+   ```
+   conf/opcua.json
+   ```
+   inside the ZIP (i.e. the ZIP must contain a `conf` directory with a file named exactly `opcua.json`). The runtime matches plugin configs by **filename without extension** to the **plugin name** in `plugins.conf` (e.g. `opcua.json` → plugin `opcua`).
+
+2. **Upload the ZIP**  
+   The editor uploads the ZIP to the runtime (e.g. `POST /api/upload-file` with the ZIP as the `file` part). The runtime:
+   - Extracts the ZIP to `core/generated`
+   - Calls `update_plugin_configurations("core/generated")`, which looks for config files in **`core/generated/conf/*.json`**
+   - For each `*.json` in `conf/`, if the base name (e.g. `opcua`) matches a plugin in `plugins.conf`, the runtime **copies** that file to the plugin directory (e.g. `core/src/drivers/plugins/python/opcua/opcua.json`), updates `plugins.conf` to point to it, and **enables** the plugin
+   - If `conf/` is missing or does not contain `opcua.json`, the OPC UA plugin is **disabled**
+
+3. **Compile**  
+   Compilation runs after the extract and config update, so the OPC UA plugin (when enabled) uses the newly copied `opcua.json` on the next runtime start or when the PLC is started.
+
+**Relevant code:** `webserver/plcapp_management.py` (`update_plugin_configurations`), `webserver/plugin_config_model.py` (`update_plugins_from_config_dir`), and the upload handler in `webserver/app.py` (`handle_upload_file` → `update_plugin_configurations(extract_dir)`).
 
 ---
 
