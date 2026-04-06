@@ -267,6 +267,8 @@ make -j$(nproc)
 cd ..
 ```
 
+**Optional (release builds):** compile the `webserver` package to native extensions with Cython and strip `.py` sources. See [docs/CYTHON.md](docs/CYTHON.md). Normal development stays on plain Python (`pip install -e .`).
+
 ### Starting the Runtime
 
 ```bash

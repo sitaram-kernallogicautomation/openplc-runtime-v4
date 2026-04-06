@@ -127,7 +127,11 @@ Set `OPENPLC_SKIP_LICENSE_CHECK=1` in the environment to start the runtime on Wi
 
 Generate an RSA key pair (2048-bit or stronger), install the **public** PEM as `webserver/keys/license_public.pem` in your tree (update `.gitignore` if you use a different path), and use the **private** PEM only with `issue_windows_license.py`. The file committed upstream is a placeholder; you must use your own key pair for customers.
 
-## Masking Python source in the installed app
+## Hiding webserver source in the installed app
+
+**Preferred:** compile `webserver/` with **Cython** on the payload copy, then strip `.py` files. See [docs/CYTHON.md](../docs/CYTHON.md) (`setup_cython.py`, `scripts/strip_webserver_py_after_cython.py`). Ship the same Python minor version you used to build.
+
+### Bytecode-only masking (lighter obfuscation)
 
 The installer places files under `%LOCALAPPDATA%\OpenPLC Runtime\openplc-runtime\`, which would normally expose plain `webserver/*.py` files.
 

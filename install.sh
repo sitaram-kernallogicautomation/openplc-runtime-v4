@@ -509,6 +509,8 @@ fi
 chmod +x "$OPENPLC_DIR/install.sh" 2>/dev/null || true
 chmod +x "$OPENPLC_DIR/scripts/"* 2>/dev/null || true
 chmod +x "$OPENPLC_DIR/windows/"*.sh 2>/dev/null || true
+chmod +x "$OPENPLC_DIR/setup_cython.py" 2>/dev/null || true
+chmod +x "$OPENPLC_DIR/scripts/strip_webserver_py_after_cython.py" 2>/dev/null || true
 chmod +x "$OPENPLC_DIR/start_openplc.sh" 2>/dev/null || true
 
 install_dependencies

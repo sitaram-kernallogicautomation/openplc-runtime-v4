@@ -34,6 +34,9 @@ openplc.license
 *.egg-info
 *.pytest_cache/
 
+# Cython generated C sources (optional: python setup_cython.py build_ext --inplace)
+webserver/**/*.c
+
 # Ignore all object files and shared libraries
 *.o
 *.so

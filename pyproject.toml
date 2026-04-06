@@ -9,7 +9,7 @@ requires = ["setuptools>=64", "wheel", "packaging>=24.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["webserver"]
+packages = ["webserver", "webserver.logger"]
 
 [tool.ruff]
 line-length = 100
