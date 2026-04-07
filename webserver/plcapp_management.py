@@ -44,6 +44,11 @@ class BuildProcess:
 build_state = BuildProcess()  # global-ish singleton for status
 
 
+def _shutdown_compilation_executor() -> None:
+    """Called on web server shutdown. Reserved for async compile thread pools; no-op for sync compile."""
+    pass
+
+
 def analyze_zip(zip_path) -> tuple[bool, list]:
     """Analyze the ZIP file for safety before extraction."""
     build_state.status = BuildStatus.UNZIPPING

@@ -46,8 +46,10 @@ This is an **optional release** path: compile `webserver/**/*.py` to native exte
 5. Run the runtime from the same venv:
 
    ```bash
-   python -m webserver.app
+   python -m webserver
    ```
+
+   Do **not** use `python -m webserver.app` after `app` is a Cython extension: extension modules cannot be run as `__main__` (`no code object available`). A small `webserver/__main__.py` (plain Python, not stripped) delegates to `run_https()`.
 
 ## CI / Windows installer
 
@@ -61,6 +63,7 @@ This is an **optional release** path: compile `webserver/**/*.py` to native exte
 
 ## Troubleshooting
 
+- **`BrokenProcessPool` / process pool terminated**: Cython’s parallel compile (`nthreads`) can fail on some Linux/Python versions. The default is **sequential** compile (`OPENPLC_CYTHON_NTHREADS` unset or `0`). To retry parallel: `OPENPLC_CYTHON_NTHREADS=4 python setup_cython.py build_ext --inplace`
 - **Import errors** after strip: re-run `build_ext --inplace` with the **exact** interpreter you use at runtime.
 - **A module fails to Cythonize**: exclude it temporarily in `setup_cython.py` (narrow `_collect_extensions`) or add Cython directives; some dynamic patterns need `binding=True` (already set).
 

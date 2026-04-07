@@ -15,10 +15,14 @@ Development: do not run this; use normal ``pip install -e .`` and plain .py file
 
 This file is intentionally separate from the default ``pyproject.toml`` install so
 ``pip install .`` does not require a C compiler or Cython for day-to-day work.
+
+Parallel Cython compile is off by default (``OPENPLC_CYTHON_NTHREADS=0``) to avoid
+``BrokenProcessPool`` on some systems. Set ``OPENPLC_CYTHON_NTHREADS=4`` to enable.
 """
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
@@ -37,11 +41,24 @@ def _collect_extensions() -> list[Extension]:
     for py in sorted(root.rglob("*.py")):
         if "__pycache__" in py.parts:
             continue
+        # Keep as .py: required for `python -m webserver` after app is a C extension.
+        if py.name == "__main__.py":
+            continue
         mod = ".".join(py.with_suffix("").parts)
         exts.append(Extension(mod, [str(py)]))
     if not exts:
         raise SystemExit("No Python files found under webserver/")
     return exts
+
+
+def _cython_nthreads() -> int:
+    # Parallel cythonize() uses a process pool; a single failed worker yields
+    # BrokenProcessPool on some setups. Default to sequential (0 = no pool).
+    raw = os.environ.get("OPENPLC_CYTHON_NTHREADS", "0").strip()
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return 0
 
 
 setup(
@@ -54,7 +71,7 @@ setup(
             "language_level": "3",
             "binding": True,
         },
-        nthreads=4,
+        nthreads=_cython_nthreads(),
     ),
     zip_safe=False,
 )

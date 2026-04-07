@@ -121,7 +121,7 @@ Pass `--days N` when issuing to set JWT `exp`. Omit `--days` (or use `0`) for no
 
 ### Development bypass
 
-Set `OPENPLC_SKIP_LICENSE_CHECK=1` in the environment to start the runtime on Windows without a license (for internal development only). **Note:** `StartOpenPLC.bat` clears this variable before starting Python so a stray machine-wide setting cannot disable licensing when customers use the shipped shortcut; for local dev, run `python3 -m webserver.app` from an MSYS shell yourself with the variable set.
+Set `OPENPLC_SKIP_LICENSE_CHECK=1` in the environment to start the runtime on Windows without a license (for internal development only). **Note:** `StartOpenPLC.bat` clears this variable before starting Python so a stray machine-wide setting cannot disable licensing when customers use the shipped shortcut; for local dev, run `python3 -m webserver` from an MSYS shell yourself with the variable set.
 
 ### Replacing keys in your fork
 
@@ -141,7 +141,7 @@ The installer places files under `%LOCALAPPDATA%\OpenPLC Runtime\openplc-runtime
 2. Deletes all `*.py` and `*.pyi` there
 3. Deletes `*.md` under `webserver/` (docs shipped with the package)
 
-The runtime still starts with `./venvs/runtime/bin/python3 -m webserver.app`; CPython loads modules from `.pyc` for the same interpreter version.
+The runtime starts with `./venvs/runtime/bin/python3 -m webserver` (or `-m webserver.app` only when `app` is still plain Python). After Cython, use `-m webserver` only.
 
 **Manual builds:** after you populate `windows/payload/openplc-runtime`, run from the repository root inside MSYS2:
 

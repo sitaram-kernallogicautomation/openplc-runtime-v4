@@ -2,4 +2,4 @@
 set -euo pipefail
 
 # Start the PLC webserver
-./venvs/runtime/bin/python3 webserver/app.py
+./venvs/runtime/bin/python3 -m webserver

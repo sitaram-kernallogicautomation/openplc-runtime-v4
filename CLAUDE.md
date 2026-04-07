@@ -16,7 +16,7 @@ sudo ./start_openplc.sh
 
 # Run web server only (for development)
 source venvs/runtime/bin/activate
-sudo python3 -m webserver.app
+sudo python3 -m webserver
 
 # Run PLC runtime only
 sudo ./build/plc_main --print-logs

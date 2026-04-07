@@ -28,6 +28,8 @@ def _has_compiled_module(py_file: Path) -> bool:
         f"{stem}.*.pyd",
         f"{stem}.so",
         f"{stem}.pyd",
+        f"{stem}.cpython-312-x86_64-linux-gnu.so",
+        f"{stem}.cpython-312-x86_64-cygwin.dll",
     )
     for pat in patterns:
         if list(d.glob(pat)):
@@ -54,6 +56,9 @@ def main() -> int:
     skipped = 0
     for py in sorted(root.rglob("*.py")):
         if "__pycache__" in py.parts:
+            continue
+        # Entry point for `python -m webserver`; must stay as .py (not Cythonized).
+        if py.name == "__main__.py":
             continue
         if not _has_compiled_module(py):
             print(f"SKIP (no extension next to source): {py}")

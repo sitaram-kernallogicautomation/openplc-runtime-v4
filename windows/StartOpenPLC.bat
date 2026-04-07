@@ -50,7 +50,7 @@ REM in the environment (devs can run python directly with that var if needed).
 set "OPENPLC_SKIP_LICENSE_CHECK="
 
 REM Start the OpenPLC Runtime
-"%MSYS2_ROOT%\usr\bin\bash.exe" -lc "cd '%OPENPLC_MSYS_PATH%' && ./venvs/runtime/bin/python3 -m webserver.app"
+"%MSYS2_ROOT%\usr\bin\bash.exe" -lc "cd '%OPENPLC_MSYS_PATH%' && ./venvs/runtime/bin/python3 -m webserver"
 
 if %ERRORLEVEL% neq 0 (
     echo.

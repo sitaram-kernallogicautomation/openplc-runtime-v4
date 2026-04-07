@@ -171,7 +171,7 @@ For web server development without the full startup script:
 
 ```bash
 source venvs/runtime/bin/activate
-sudo python3 -m webserver.app
+sudo python3 -m webserver
 ```
 
 ### Run PLC Runtime Only
@@ -343,7 +343,7 @@ Debug the web server:
 
 ```bash
 source venvs/runtime/bin/activate
-sudo python3 -m pdb -m webserver.app
+sudo python3 -m pdb -m webserver
 ```
 
 ### Log Analysis
