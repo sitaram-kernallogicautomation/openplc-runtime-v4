@@ -81,9 +81,12 @@ def validate_ip_address(ip: str) -> str:
         raise ValueError(f"Invalid IP address '{ip}': {e}") from e
 
 
-def validate_file_path(file_path: str, base_dir: str | None = None) -> Path:
+def validate_file_path(file_path: str | Path | os.PathLike[str], base_dir: str | Path | None = None) -> Path:
     """
     Validate file path to prevent path traversal attacks.
+
+    Accepts str or pathlib.Path (and other os.PathLike). Use a broad annotation so
+    Cython-generated bindings do not reject Path objects from callers.
 
     Args:
         file_path: The file path to validate
@@ -95,20 +98,19 @@ def validate_file_path(file_path: str, base_dir: str | None = None) -> Path:
     Raises:
         ValueError: If path is invalid or contains traversal sequences
     """
-    if not file_path or str(file_path) == '':
+    file_path_s = os.fspath(file_path)
+    if not file_path_s:
         raise ValueError("File path must be a non-empty string")
 
-    file_path = str(file_path) # Make sure this is a string
-    
-    path = Path(file_path).resolve()
+    path = Path(file_path_s).resolve()
 
     if base_dir:
-        base = Path(base_dir).resolve()
+        base = Path(os.fspath(base_dir)).resolve()
         try:
             path.relative_to(base)
         except ValueError as e:
             raise ValueError(
-                f"Path '{file_path}' is outside allowed directory '{base_dir}'"
+                f"Path '{file_path_s}' is outside allowed directory '{base_dir}'"
             ) from e
 
     return path
@@ -164,8 +166,8 @@ class CertGen:
         """
         logger.info(f"Generating self-signed certificate for {self.hostname}...")
 
-        cert_path = str(validate_file_path(cert_file))
-        key_path = str(validate_file_path(key_file))
+        cert_path = str(validate_file_path(os.fspath(cert_file)))
+        key_path = str(validate_file_path(os.fspath(key_file)))
 
         san_list = [f"DNS:{self.hostname}"]
         for ip in self.ip_addresses:
@@ -223,7 +225,7 @@ class CertGen:
             True if certificate is valid, False otherwise
         """
         try:
-            cert_path = str(validate_file_path(cert_file))
+            cert_path = str(validate_file_path(os.fspath(cert_file)))
         except ValueError as e:
             logger.error(f"Invalid certificate path: {e}")
             return False
