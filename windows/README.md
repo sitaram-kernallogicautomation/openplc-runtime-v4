@@ -10,6 +10,7 @@ The Windows installer bundles a complete MSYS2 environment with all required dep
 
 - `setup.iss` - Inno Setup script that creates the Windows installer
 - `StartOpenPLC.bat` - Windows launcher script that starts the runtime inside MSYS2
+- `PrintHardwareFingerprint.bat` - Prints the 64-hex machine fingerprint for licensing (clients send this to you)
 - `provision-msys2.sh` - Script to install packages and configure MSYS2 (used during CI build)
 
 ## Building the Installer
@@ -75,6 +76,7 @@ This includes:
 - `msys64/` - Complete MSYS2 environment
 - `openplc-runtime/` - OpenPLC Runtime files
 - `StartOpenPLC.bat` - Launcher script
+- `PrintHardwareFingerprint.bat` - License hardware ID helper
 
 ## Usage
 
@@ -83,6 +85,8 @@ After installation, users can:
 2. Or run `StartOpenPLC.bat` directly
 
 The runtime will start and be accessible at https://localhost:8443
+
+**Licensing:** Use the Start Menu entry **Print hardware fingerprint (license)** or run `PrintHardwareFingerprint.bat` in `%LOCALAPPDATA%\OpenPLC Runtime\`. Copy the printed line to your vendor; they return `openplc.license` to place in `openplc-runtime\`.
 
 ## Licensing (fork builds)
 

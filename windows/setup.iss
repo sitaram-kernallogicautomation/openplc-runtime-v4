@@ -61,11 +61,13 @@ Source: "payload\openplc-runtime\*"; DestDir: "{app}\openplc-runtime"; Flags: ig
 
 ; Launcher and support files
 Source: "StartOpenPLC.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "PrintHardwareFingerprint.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "openplc.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Start Menu shortcuts (per-user, no admin needed)
 Name: "{userprograms}\{#MyAppName}\Start OpenPLC Runtime"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\openplc.ico"
+Name: "{userprograms}\{#MyAppName}\Print hardware fingerprint (license)"; Filename: "{app}\PrintHardwareFingerprint.bat"; WorkingDir: "{app}"; IconFilename: "{app}\openplc.ico"
 Name: "{userprograms}\{#MyAppName}\MSYS2 Terminal"; Filename: "{app}\msys64\msys2.exe"; WorkingDir: "{app}\msys64"
 Name: "{userprograms}\{#MyAppName}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"
 
